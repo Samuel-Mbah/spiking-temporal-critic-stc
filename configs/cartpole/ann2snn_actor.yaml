@@ -1,0 +1,109 @@
+# Research-grade ANN -> SNN (Actor-Only Conversion)
+
+run_name: "ANN2SNN_Actor_v1"
+project_name: "cartpole-snn-project"
+log_dir: "results/RLC/logs/ann2snn_actor"
+plots_dir: "results/RLC/plots/ann2snn_actor"
+video_dir: "results/RLC/videos/ann2snn_actor"
+wandb_dir: "results/RLC/wandb/ann2snn_actor"
+
+save_ckpt: true
+device: "cuda"
+env_seed: 42
+instrument_timing: true
+timing_log_interval: 100
+
+experiment_meta:
+  repeats: 1                   # Defer to shell script
+  base_seed: 42
+  per_repeat_tag: "research"
+
+env:
+  id: "CartPole-v1"
+  n_envs: 8
+  vec_normalize: false
+  max_episode_steps: 500
+  
+
+logging:
+  checkpoint_interval_updates: 100
+  save_last_checkpoint: true
+  logger_collect_spikes: true
+  activations_probe_interval: 100
+  latency_probe_interval: 100
+
+# PHASE 1: ANN TRAINING (Matched to Baseline)
+training:
+  rollout_length: 2048
+  total_updates: 500         # 1000 Updates
+  batch_size: 256
+  update_epochs: 10
+  sticky_action: false
+  no_action_cfg: null
+
+ppo:
+  lr: 0.001
+  gamma: 0.99
+  lam: 0.95
+  clip_eps: 0.1
+  clip_range_vf: 0.2
+  entropy_coef: 0.0
+  value_coef: 1.0
+  max_grad_norm: 0.5
+  target_kl: 0.015
+  print_interval_updates: 20
+  eval_interval_updates: 20
+  eval_episodes: 20
+  solved_window_eval_episodes: 100
+  reward_threshold: 475.0
+  success_rate_threshold: 95.0
+  scale_returns_to_value: false
+  print_interval_updates: 10
+  print_debug: false
+
+model:
+  mode: "ann"
+  hidden_dim: 64
+  dropout: 0.0
+  critic_informs_actor: false
+  in_features: 4
+
+# PHASE 2: CONVERSION
+snn_convert:
+  convert_actor: true
+  convert_critic: false
+  T: 32
+  beta: 1.0
+  V_th: 1.0
+  poisson_encode: false
+  rate_scale: 1.0
+  center_logits: true
+  p99_scale: true
+
+# PHASE 3: FINE-TUNING
+snn_finetune:
+  enabled: false
+  total_updates: 100
+  lr: 0.0001
+  lambda_spike: 0.001
+
+sticky_action:
+  train: false
+  eval: true
+
+benchmark:
+  measure_inference_energy: true
+  energy_runs_per_measure: 5
+  run_for_ann: true
+  num_episodes_for_benchmark: 50
+
+seed_control:
+  deterministic_torch: true
+  cudnn_benchmark: false
+
+reporting:
+  save_plots: true
+  wandb:
+    use: false
+    project: "cartpole-snn-project"
+    tags: ["research", "ann2snn", "actor"]

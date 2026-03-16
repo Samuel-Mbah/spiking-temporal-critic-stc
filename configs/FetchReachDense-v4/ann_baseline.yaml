@@ -1,0 +1,79 @@
+run_name: "ANN_FetchReach_v0"
+project_name: "cartpole-snn-project"
+log_dir: "results/logs/fetchreach_ann"
+plots_dir: "results/plots/fetchreach_ann"
+wandb_dir: "results/wandb/fetchreach_ann"
+
+save_ckpt: true
+device: "cuda"         # or "cpu"
+env_seed: 42
+instrument_timing: false 
+
+experiment_meta:
+  repeats: 1
+  base_seed: 42
+  per_repeat_tag: "fetchreach"
+
+env:
+  id: "FetchReachDense-v4"       
+  kwargs: {} 
+  n_envs: 8
+  vec_normalize: true # CRITICAL: True for continuous robotics states
+  max_episode_steps: 50 # FetchReach default horizon is 50 steps
+  frame_stack: 1      # Fully observable Markovian state, no memory needed
+  frame_stack_flatten: true
+
+logging:
+  checkpoint_interval_updates: 5
+  save_last_checkpoint: true
+  logger_collect_spikes: false
+
+training:
+  shuffle_minibatches: true # Recommended for continuous control
+  rollout_length: 2048  # Increased: Standard for continuous control
+  total_updates: 500  # Increased: More updates needed to solve a robotic arm
+  batch_size: 256 # Increased for stability
+  update_epochs: 10 # Standard for PPO in continuous control
+  sticky_action: false
+
+ppo:
+  lr: 0.001
+  gamma: 0.99
+  lam: 0.95
+  clip_eps: 0.2
+  entropy_coef: 0.0 # Set to 0.0 for continuous action spaces
+  value_coef: 0.5
+  max_grad_norm: 0.5
+  target_kl: 0.015
+  print_interval_updates: 5
+  eval_interval_updates: 10
+  eval_episodes: 20
+  reward_threshold: -1.5 # Dense FetchReach reward is negative distance (-1.5 is generally solved)
+  success_rate_threshold: 95.0
+
+# Post-training/post-conversion validation trace collection budget + protocol.
+# Used by surrogate/conversion validation-data collection.
+post_eval:
+  n_eval_steps: 512        
+  n_eval_episodes: null    # Set to integer to cap by episodes
+  deterministic: true      # true=argmax policy, false=sample policy
+  max_episode_steps: 50   # Align with FetchReach max episode steps
+
+model:
+  mode: "ann"  # "ann", "ann_recurrent", "snn_actor_ann_critic", "snn_actor_snn_critic"
+  hidden_dim: 128
+  dropout: 0.2
+  in_features: 16      # 16 (flattened obs) * 1 (frame stack)
+
+benchmark:
+  run_for_ann: false
+  num_episodes_for_benchmark: 20
+
+seed_control:
+  deterministic_torch: true
+  cudnn_benchmark: false
+
+reporting:
+  save_plots: true
+  wandb:
+    use: false

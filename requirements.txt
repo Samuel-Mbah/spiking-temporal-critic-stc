@@ -1,0 +1,14 @@
+gymnasium==1.2.3
+gymnasium_robotics==1.4.2
+matplotlib==3.10.8
+numpy==2.4.3
+pandas==3.0.1
+opencv-python==4.12.0.88
+pynvml==13.0.1
+PyYAML==6.0.3
+scikit_learn==1.8.0
+scipy==1.17.1
+seaborn==0.13.2
+snntorch==0.9.4
+torch==2.10.0
+wandb==0.25.1

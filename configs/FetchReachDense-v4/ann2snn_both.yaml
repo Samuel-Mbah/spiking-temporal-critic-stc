@@ -1,0 +1,132 @@
+# Research-grade ANN -> SNN (Actor-Only Conversion) for FetchReach
+
+run_name: "ANN2SNN_Both_FetchReach_v1"
+project_name: "cartpole-snn-project"
+log_dir: "results/logs/fetchreach_ann2snn_both"
+plots_dir: "results/plots/fetchreach_ann2snn_both"
+video_dir: "results/videos/fetchreach_ann2snn_both"
+wandb_dir: "results/wandb/fetchreach_ann2snn_both"
+
+save_ckpt: true
+device: "cuda"
+env_seed: 42
+instrument_timing: true
+timing_log_interval: 100
+
+experiment_meta:
+  repeats: 1                   # Defer to shell script
+  base_seed: 42
+  per_repeat_tag: "research"
+
+env:
+  id: "FetchReachDense-v4"
+  kwargs: {}                   # Removed T-Maze specific kwargs
+  n_envs: 8
+  vec_normalize: true          # CRITICAL: Set to true for continuous robotics states
+  max_episode_steps: 50        # FetchReach default is 50 steps
+  # Removed partial_obs mask
+  frame_stack: 1               # Fully observable Markovian state, no memory needed
+  frame_stack_flatten: true    
+
+logging:
+  checkpoint_interval_updates: 10
+  save_last_checkpoint: true
+  logger_collect_spikes: true
+  activations_probe_interval: 100
+  latency_probe_interval: 100
+
+# PHASE 1: ANN TRAINING 
+training:
+  rollout_length: 2048         # Increased: Standard for continuous control
+  total_updates: 500           # Increased: More updates needed to solve a robotic arm
+  batch_size: 256              # Increased for stability
+  update_epochs: 10            # Standard for PPO in continuous control
+  sticky_action: false
+  no_action_cfg: null
+
+ppo:
+  lr: 0.001
+  gamma: 0.99
+  lam: 0.95
+  clip_eps: 0.2
+  clip_range_vf: 0.2
+  entropy_coef: 0.0            # Set to 0.0 for continuous action spaces
+  value_coef: 0.5
+  max_grad_norm: 0.5
+  target_kl: 0.015
+  eval_interval_updates: 10    
+  eval_episodes: 20
+  solved_window_eval_episodes: 100
+  reward_threshold: -1.5       # Dense FetchReach reward is negative distance. -1.5 is "solved"
+  success_rate_threshold: 95.0
+  scale_returns_to_value: false
+  print_interval_updates: 10
+  print_debug: false
+
+model:
+  mode: "ann"
+  hidden_dim: 128
+  dropout: 0.2
+  critic_informs_actor: false
+  in_features: 16              # 16 (flattened obs) * 1 (frame stack)
+
+# PHASE 2: CONVERSION
+snn_convert:
+  convert_actor: true
+  convert_critic: true
+  T: 32                        # 32 steps provides excellent conversion fidelity
+  beta: 1.0                    # Beta 1.0 is standard for ANN->SNN rate encoding mathematical equivalence
+  V_th: 1.0
+  poisson_encode: false
+  rate_scale: 1.0
+  center_logits: true
+  p99_scale: true
+  calibration_episodes: 256
+  calibration_stochastic: true
+  calibration_obs_noise_std: 0.01
+  calibration_max_steps_per_episode: 0
+
+# PHASE 3: FINE-TUNING
+snn_finetune:
+  enabled: true
+  total_updates: 50            
+  lr: 0.0001
+  lambda_spike: 0.001
+
+sticky_action:
+  train: false
+  eval: true
+
+benchmark:
+  measure_inference_energy: false
+  energy_runs_per_measure: 5
+  run_for_ann: false
+  num_episodes_for_benchmark: 50
+
+seed_control:
+  deterministic_torch: true
+  cudnn_benchmark: false
+
+
+reporting:
+  save_plots: true
+  wandb:
+    use: false
+    project: "fetchreach-snn-project"
+    tags: ["research", "ann2snn", "both"]
+
+video:
+  record_ann_solution_video: false
+  record_zero_shot_video: false
+  record_finetune_solution_video: false
+
+post_eval:
+  n_eval_steps: 512
+  n_eval_episodes: null
+  deterministic: true
+  max_episode_steps: 50        # Align with FetchReach max episode steps
+
+comparison:
+  # Optional: conventional ANN baseline checkpoint for 3-way comparison.
+  # If null or missing, only converted ANN vs converted SNN is logged.
+  conventional_ann_checkpoint: null

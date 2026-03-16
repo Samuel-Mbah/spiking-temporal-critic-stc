@@ -1,0 +1,55 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+*.whl
+pip-wheel-metadata/
+*.manifest
+*.spec
+
+# Virtual environments and dependency management
+.env
+.venv
+venv/
+env/
+ENV/
+.conda/
+pip-log.txt
+
+# Editor directories
+.vscode/
+.idea/
+
+# Test and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Generated notebook checkpoints
+.ipynb_checkpoints/
+
+# Logs and runtime files
+*.log
+*.pid
+*.seed
+*.cache
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# Data and experiment outputs
+results/
+
+
+# Local secrets and configs
+.envrc
+*.pem
+*.key

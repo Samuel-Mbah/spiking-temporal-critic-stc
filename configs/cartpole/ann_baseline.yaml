@@ -1,0 +1,96 @@
+# Research-grade ANN baseline for CartPole-v1
+# - Reproducible: explicit seeds & deterministic flags
+# - Robust: 5 external seeds (via shell script), ~16.4M steps total
+# - Traceable: logging, checkpoints, periodic reports
+
+run_name: "ANN_CartPole_research_v1"
+project_name: "cartpole-snn-project"
+log_dir: "results/RLC/logs/ann_research"
+plots_dir: "results/RLC/plots/ann_research"
+video_dir: "results/RLC/videos/ann_research"
+wandb_dir: "results/wandb/ann_research"
+
+save_ckpt: true
+device: "cuda"         # change to "cpu" if GPU unavailable
+env_seed: 42
+instrument_timing: true
+timing_log_interval: 100
+
+# EXPERIMENT META
+experiment_meta:
+  repeats: 2                   # Defer to shell script for seeding
+  base_seed: 42
+  per_repeat_tag: "research"
+
+# ENVIRONMENT
+env:
+  id: "CartPole-v1"
+  n_envs: 8                    # 8 envs * 2048 steps = 16,384 steps per update
+  vec_normalize: false         # Often better false for direct ANN inputs
+  max_episode_steps: 500
+ 
+
+# LOGGING
+logging:
+  checkpoint_interval_updates: 100  # Save checkpoints every ~1.6M steps
+  save_last_checkpoint: true
+  logger_collect_spikes: false
+  activations_probe_interval: 100
+  latency_probe_interval: 100
+
+# TRAINING (Aligned for ~1.8M Steps)
+training:
+  rollout_length: 2048        # Large buffer for stable gradients
+  total_updates: 500         # 500 updates * 16k steps = ~1.8M total steps
+  batch_size: 256
+  update_epochs: 10
+  sticky_action: false
+  no_action_cfg: null
+
+# PPO HYPERPARAMETERS
+ppo:
+  lr: 0.001
+  gamma: 0.99
+  lam: 0.95
+  clip_eps: 0.1
+  clip_range_vf: 0.2
+  entropy_coef: 0.0
+  value_coef: 1.0
+  max_grad_norm: 0.5
+  target_kl: 0.015
+  print_interval_updates: 20
+  eval_interval_updates: 20     # Eval less frequently for speed
+  eval_episodes: 20             # Higher sample size for reliable stats
+  solved_window_eval_episodes: 100
+  eval_seed: 42                 # Deterministic eval seed base (per-episode offset)
+  reward_threshold: 475.0
+  success_rate_threshold: 95.0
+  scale_returns_to_value: false
+  print_debug: false
+
+# MODEL ARCHITECTURE
+model:
+  mode: "ann"
+  hidden_dim: 64
+  dropout: 0.0
+  critic_informs_actor: false
+  in_features: 4 # if env.frame_stack is None else env.frame_stack * 4
+
+# BENCHMARKING
+benchmark:
+  measure_inference_energy: true
+  energy_runs_per_measure: 5
+  run_for_ann: true
+  num_episodes_for_benchmark: 50
+
+# MISC
+seed_control:
+  deterministic_torch: true
+  cudnn_benchmark: false
+
+reporting:
+  save_plots: true
+  wandb:
+    use: false
+    project: "cartpole-snn-project"
+    tags: ["research", "ann", "cartpole"]
