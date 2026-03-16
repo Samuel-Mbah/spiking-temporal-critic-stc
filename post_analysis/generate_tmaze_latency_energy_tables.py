@@ -110,8 +110,8 @@ VARIANTS: List[VariantSpec] = [
     VariantSpec(
         key="snn_timing_critic",
         label="SNN Timing Critic (Proposed)",
-        dir_active="tmaze_snn_actor_snntiming_critic_active",
-        dir_passive="tmaze_snn_actor_snntiming_critic_passive",
+        dir_active="tmaze_snn_actor_snn_timing_critic_active",
+        dir_passive="tmaze_snn_actor_snn_timing_critic_passive",
         actor_steps_expected=True,
         critic_steps_expected=True,
     ),

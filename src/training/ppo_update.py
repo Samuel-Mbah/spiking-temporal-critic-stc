@@ -1,3 +1,8 @@
+"""PPO policy-update step.
+
+Implements the clipped surrogate objective, value-function loss,
+entropy regularisation, and optional spike-rate regularisation.
+"""
 import numpy as np
 import torch
 import torch.nn.functional as F

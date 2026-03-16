@@ -1,3 +1,8 @@
+"""Core PPO training loop.
+
+Orchestrates the rollout → GAE → policy-update pipeline and tracks spike
+statistics for both actor and critic during training.
+"""
 
 import numpy as np
 from typing import Dict, Any, Tuple

@@ -1,3 +1,8 @@
+"""Entry point for training ANN baseline agents with PPO.
+
+Loads a YAML config, constructs the environment and agent, runs the training
+loop, and writes checkpoints and evaluation plots.
+"""
 import os
 import time
 import torch

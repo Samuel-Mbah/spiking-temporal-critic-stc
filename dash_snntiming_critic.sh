@@ -7,7 +7,7 @@ tmux new-session -d -s $SESSION
 
 # Pane 1: Activate and Run Experiment
 tmux send-keys -t $SESSION "conda activate $CONDA_ENV" C-m
-tmux send-keys -t $SESSION "sleep 1; python3 experiments/snn_actor_snntiming_critic.py --config configs/snn_actor_snntiming_critic.yaml" C-m
+tmux send-keys -t $SESSION "sleep 1; python3 experiments/snn_actor_snn_timing_critic.py --config configs/snn_actor_snn_timing_critic.yaml" C-m
 
 # Split vertically
 tmux split-window -h -t $SESSION

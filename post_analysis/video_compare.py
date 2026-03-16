@@ -23,8 +23,8 @@ from src.utils.checkpoint import load_checkpoint
 from src.training.agents import make_agent, ActorType, CriticType, resolve_cartpole_types
 from src.tools.video_comparison import collect_trajectory, render_comparison_video
 from src.models.ann import Actor
-from src.models.ActorCritic import ActorCritic
-from src.models.snn_spikeactor import SNNSpikeActor
+from src.models.actor_critic import ActorCritic
+from src.models.snn_spike_actor import SNNSpikeActor
 
 
 def _resolve_path(path: str | None) -> str | None:
@@ -741,7 +741,7 @@ if __name__ == "__main__":
 # python3 post_analysis/video_compare.py \
 #   --config configs/tmaze/ann_baseline.yaml \
 #   --ann_config configs/tmaze/ann_baseline.yaml \
-#   --snn_config configs/tmaze/snn_actor_snntiming_critic.yaml \
+#   --snn_config configs/tmaze/snn_actor_snn_timing_critic.yaml \
 #   --ann_ckpt results/logs/tmaze_ann/checkpoints/checkpoint_best.pt \
 #   --snn_ckpt results/logs/tmaze_snn_timing_critic/checkpoints/checkpoint_best.pt \
 #   --out results/videos/tmaze_comparison.mp4 \
@@ -754,7 +754,7 @@ if __name__ == "__main__":
 # python3 post_analysis/video_compare.py \
 #   --config configs/tmaze/ann_baseline.yaml \
 #   --ann_config configs/tmaze/ann_baseline.yaml \
-#   --snn_config configs/tmaze/snn_actor_snntiming_critic.yaml \
+#   --snn_config configs/tmaze/snn_actor_snn_timing_critic.yaml \
 #   --ann_ckpt results/logs/tmaze_ann/checkpoints/checkpoint_best.pt \
 #   --snn_ckpt results/logs/tmaze_snn_timing_critic/checkpoints/checkpoint_best.pt \
 #   --out results/videos/tmaze_comparison.mp4 \
@@ -766,7 +766,7 @@ if __name__ == "__main__":
 # python3 post_analysis/video_compare.py \
 #   --config configs/tmaze/ann_baseline.yaml \
 #   --ann_config configs/tmaze/ann_baseline.yaml \
-#   --snn_config configs/tmaze/snn_actor_snntiming_critic.yaml \
+#   --snn_config configs/tmaze/snn_actor_snn_timing_critic.yaml \
 #   --ann_ckpt results/logs/tmaze_ann/checkpoints/checkpoint_best.pt \
 #   --snn_ckpt results/logs/tmaze_snn_timing_critic/checkpoints/checkpoint_best.pt \
 #   --out results/videos/tmaze_comparison_raw_vout.mp4 \

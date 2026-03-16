@@ -53,8 +53,8 @@ VARIANTS: List[Variant] = [
     Variant(
         key="snn_timing_critic",
         label="SNN Timing\nCritic",
-        active_dir="tmaze_snn_actor_snntiming_critic_active",
-        passive_dir="tmaze_snn_actor_snntiming_critic_passive",
+        active_dir="tmaze_snn_actor_snn_timing_critic_active",
+        passive_dir="tmaze_snn_actor_snn_timing_critic_passive",
     ),
 ]
 

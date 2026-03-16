@@ -1,3 +1,4 @@
+"""Spike-count based SNN actor using Leaky Integrate-and-Fire neurons and Poisson encoding."""
 import torch
 import torch.nn as nn
 import snntorch as snn
@@ -8,12 +9,10 @@ from src.models.snn_block import SNNBlock
 
 class SNNSpikeActor(nn.Module):
     """
-    Spike-count based SNN actor.
-    Compatible with ANN BackboneNetwork interface.
-    
-    Merged Version:
-    - Logic: Matches 'cartpole/src' (Working version)
-    - Fixes: Removed root version's 'Positive Bias' and 'Logit Normalization' bugs.
+    Spike-count based SNN actor, compatible with ANN BackboneNetwork interface.
+
+    Inputs are Poisson-encoded into spike trains over T timesteps.  Output logits
+    are derived from accumulated synaptic current across the simulation window.
     """
 
     def __init__(
@@ -41,10 +40,8 @@ class SNNSpikeActor(nn.Module):
         self.center_logits = center_logits
         self.use_potential_fallback = use_potential_fallback
 
-        # Fast sigmoid surrogate gradient
         sg = surrogate.fast_sigmoid(slope=int(actor_surrogate_slope))
 
-        # Standard Initialization (No Positive Bias Hack)
         self.block1 = SNNBlock(
             nn.Linear(in_dim, hid_dim),
             snn.Leaky(beta=beta, threshold=V_th, spike_grad=sg),
@@ -166,8 +163,6 @@ class SNNSpikeActor(nn.Module):
         self._last_spike_count = spike_sum
         self._last_latency = first_spike_time.mean().item()
 
-        # RESTORED: Standard Logic (Logits = Accumulation)
-        # Root version divided by T here, which caused issues.
         logits = iout_accum
 
         # Potential fallback for zero-spike frames
@@ -244,55 +239,3 @@ class SNNSpikeActor(nn.Module):
             "firing_rate": (total_spikes / float(total_timesteps)) if total_timesteps > 0 else 0.0,
             "mean_latency": float(self._last_latency),
         }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

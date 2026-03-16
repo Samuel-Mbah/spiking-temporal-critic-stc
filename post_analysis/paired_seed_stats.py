@@ -5,7 +5,7 @@ Paired multi-seed statistical comparison between two experiment folders.
 Example:
   python3 post_analysis/paired_seed_stats.py \
     --model-a-dir results/logs/poc_ann_baseline_no_fs \
-    --model-b-dir results/logs/poc_snn_actor_snntiming_critic_no_fs \
+    --model-b-dir results/logs/poc_snn_actor_snn_timing_critic_no_fs \
     --model-a-name "ANN-PPO" \
     --model-b-name "Adaptive SNN" \
     --reward-threshold 475.0 \

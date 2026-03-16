@@ -1,13 +1,18 @@
+"""Agent factory: constructs actor-critic pairs for ANN, SNN, and hybrid architectures.
+
+Exposes ``make_agent()``, ``build_actor()``, and ``build_critic()`` with type-safe
+selection via the ``ActorType`` and ``CriticType`` enumerations.
+"""
 import torch
 import torch.nn as nn
 from enum import Enum, auto
 from typing import Dict, Any, Tuple, Optional
 
 from src.models.ann import BackboneNetwork, Actor, Critic, orthogonal_init
-from src.models.snn_spikeactor import SNNSpikeActor
-from src.models.snn_spikevaluecritic import SNNSpikeValueCritic
-from src.models.snn_timingcritic import SNNTimingCritic
-from src.models.ActorCritic import ActorCritic
+from src.models.snn_spike_actor import SNNSpikeActor
+from src.models.snn_spike_value_critic import SNNSpikeValueCritic
+from src.models.snn_timing_critic import SNNTimingCritic
+from src.models.actor_critic import ActorCritic
 
 class ActorType(Enum):
     ANN = auto()

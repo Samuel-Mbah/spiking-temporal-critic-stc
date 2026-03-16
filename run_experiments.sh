@@ -14,13 +14,13 @@ declare -A experiments
 if [ "$SUITE" = "poc" ]; then
     experiments["poc_ann_baseline_no_fs"]="ann_baseline.py|poc/ann_baseline.yaml"
     experiments["poc_snn_actor_ann_critic_no_fs"]="snn_actor_ann_critic.py|poc/snn_actor_ann_critic.yaml"
-    experiments["poc_snn_actor_snntiming_critic_no_fs"]="snn_actor_snntiming_critic.py|poc/snn_actor_snntiming_critic.yaml"
+    experiments["poc_snn_actor_snn_timing_critic_no_fs"]="snn_actor_snn_timing_critic.py|poc/snn_actor_snn_timing_critic.yaml"
     experiments["poc_ann2snn_full_no_fs"]="ann2snn_both.py|poc/ann2snn_both.yaml"
     experiments["poc_ann2snn_actor_no_fs"]="ann2snn_actor.py|poc/ann2snn_actor.yaml"
 else
     experiments["tmaze_ann_baseline"]="ann_baseline.py|tmaze/ann_baseline.yaml"
     # experiments["tmaze_snn_actor_ann_critic"]="snn_actor_ann_critic.py|tmaze/snn_actor_ann_critic.yaml"
-    # experiments["tmaze_snn_actor_snntiming_critic"]="snn_actor_snntiming_critic.py|tmaze/snn_actor_snntiming_critic.yaml"
+    # experiments["tmaze_snn_actor_snn_timing_critic"]="snn_actor_snn_timing_critic.py|tmaze/snn_actor_snn_timing_critic.yaml"
     # experiments["tmaze_ann2snn_full"]="ann2snn_both.py|tmaze/ann2snn_both.yaml"
     # experiments["tmaze_ann2snn_actor"]="ann2snn_actor.py|tmaze/ann2snn_actor.yaml"
 fi

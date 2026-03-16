@@ -22,7 +22,7 @@ fi
 declare -a RUNS=(
   "experiments/ann_baseline.py|configs/cartpole/ann_baseline.yaml|ann_baseline"
   "experiments/snn_actor_ann_critic.py|configs/cartpole/snn_actor_ann_critic.yaml|snn_actor_ann_critic"
-  "experiments/snn_actor_snntiming_critic.py|configs/cartpole/snn_actor_snntiming_critic.yaml|snn_actor_snntiming_critic"
+  "experiments/snn_actor_snn_timing_critic.py|configs/cartpole/snn_actor_snn_timing_critic.yaml|snn_actor_snn_timing_critic"
   "experiments/ann2snn_actor.py|configs/cartpole/ann2snn_actor.yaml|ann2snn_actor"
   "experiments/ann2snn_both.py|configs/cartpole/ann2snn_both.yaml|ann2snn_both"
 )

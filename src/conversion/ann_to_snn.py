@@ -13,9 +13,9 @@ import torch.nn as nn
 from typing import Sequence, Tuple, List, Dict, Optional, Any
 
 from src.models.ann import BackboneNetwork
-from src.models.snn_spikeactor import SNNSpikeActor
-from src.models.snn_spikevaluecritic import SNNSpikeValueCritic
-from src.models.ActorCritic import ActorCritic
+from src.models.snn_spike_actor import SNNSpikeActor
+from src.models.snn_spike_value_critic import SNNSpikeValueCritic
+from src.models.actor_critic import ActorCritic
 from src.conversion.scales import pick_scales
 from src.conversion.calibration import estimate_ann_percentiles
 from src.training.evaluate import evaluate

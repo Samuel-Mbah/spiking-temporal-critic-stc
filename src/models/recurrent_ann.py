@@ -1,3 +1,4 @@
+"""Recurrent ANN backbone using LSTM for partial-observability environments."""
 import torch
 import torch.nn as nn
 

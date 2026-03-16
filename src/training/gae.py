@@ -1,3 +1,7 @@
+"""Rollout collection and Generalised Advantage Estimation (GAE).
+
+Implements sticky-action support for zero-spike SNN timesteps.
+"""
 import torch
 import torch.nn.functional as F
 import torch.distributions as D

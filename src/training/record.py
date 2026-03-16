@@ -1,3 +1,4 @@
+"""Video recording utilities for agent episode visualisation."""
 import os
 from datetime import datetime
 import torch
