@@ -1,12 +1,12 @@
-
 """
-Experiment: Universal ANN Baseline
+Experiment: ANN Baseline
 - Mode: Single Seed Execution (CLI Driven)
 - Logic: Trains a standard PPO agent with an ANN architecture on ANY Gym environment.
-- Usage: python universal_baseline.py --config path/to/config.yaml --seed 1
+- Usage: python ann_baseline.py --config path/to/config.yaml --seed 1
 """
 
 import argparse
+import dataclasses
 import os
 import sys
 import yaml
@@ -14,7 +14,7 @@ import wandb
 import logging
 import json
 import gymnasium as gym
-import matplotlib 
+import matplotlib
 import torch
 import numpy as np
 
@@ -33,13 +33,31 @@ from src.utils.report import create_training_dashboard
 from src.utils.metrics import calculate_and_save_metrics_csv
 from src.training.envs import set_global_seeds, make_envs, VecNormalize
 from src.tools.energy_benchmark import EnergyBenchmark
-from src.training.evaluate import evaluate_snn 
+from src.training.evaluate import evaluate_snn
 
 # Logging Setup
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 logger = logging.getLogger(__name__)
 
 
+# =======================================================================
+#  SERIALISATION HELPER
+# =======================================================================
+def _metrics_to_dict(metrics) -> dict:
+    """
+    Safely serialise an EnergyMetrics dataclass to a plain dict.
+
+    The `sop` field is itself a dataclass (SOPEnergyResult) and therefore not
+    directly JSON-serialisable.  We convert it to a nested dict here so that
+    `json.dump` never raises a TypeError.
+    """
+    d = dataclasses.asdict(metrics)  # recursively converts nested dataclasses
+    return d
+
+
+# =======================================================================
+#  INTRA-EPISODE VALUE HELPERS  (unchanged)
+# =======================================================================
 @torch.no_grad()
 def _collect_intra_episode_values(agent, env, max_steps: int = 1000):
     """Collect critic values over one deterministic evaluation episode."""
@@ -126,6 +144,7 @@ def register_custom_envs():
     except ImportError:
         logger.warning("Could not import t_maze. If using T-Maze, ensure src/envs/t_maze.py exists.")
 
+
 def main():
     # 0. Register Custom Envs
     register_custom_envs()
@@ -143,7 +162,7 @@ def main():
     config_path = args.config
     if not os.path.exists(config_path):
         config_path = os.path.join(repo_root, args.config)
-        
+
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
 
@@ -204,8 +223,8 @@ def main():
     # A. Save CSV Metrics
     try:
         calculate_and_save_metrics_csv(
-            result, 
-            config['log_dir'], 
+            result,
+            config['log_dir'],
             env_name=config['env'].get('id'),
             reward_threshold=config['ppo'].get("reward_threshold", 0.0)
         )
@@ -262,7 +281,10 @@ def main():
         except Exception as e:
             logger.error(f"Failed to create dashboard: {e}")
 
-    # C. Benchmarking
+    # C. Inline Benchmarking
+    # NOTE: For multi-experiment comparison (ANN vs SNN), prefer the standalone
+    # benchmark.py script which loads from checkpoints and generates a combined
+    # report.  This inline benchmark is kept for single-run sanity checks only.
     bench_cfg = config.get("benchmark", {}) or {}
     benchmark_enabled = bool(
         bench_cfg.get(
@@ -273,33 +295,36 @@ def main():
     if benchmark_enabled:
         try:
             env_cfg = config.get("env", {})
-            # Create a clean env for benchmarking
-            # Note: We assume the config 'id' is sufficient. 
-            # If your env needs kwargs (like length=10), modify make_envs in src/training/envs.py
             _, bench_env = make_envs(
-                seed=config['env_seed'] + 1000, 
+                seed=config['env_seed'] + 1000,
                 env_id=env_cfg.get('id'),
                 n_envs=1,
+                # Pass env_kwargs so custom envs (T-Maze etc.) initialise correctly
+                env_kwargs=env_cfg.get("kwargs", {}),
                 partial_obs=env_cfg.get("partial_obs"),
                 frame_stack=env_cfg.get("frame_stack"),
                 frame_stack_flatten=env_cfg.get("frame_stack_flatten", True),
             )
-            
-            # Handle Normalization (transfer statistics from training)
+
             if env_cfg.get('vec_normalize', False) and hasattr(agent, 'obs_rms'):
-                 bench_env = VecNormalize(bench_env, training=False)
-                 bench_env.obs_rms = agent.obs_rms
+                bench_env = VecNormalize(bench_env, training=False)
+                bench_env.obs_rms = agent.obs_rms
 
             bencher = EnergyBenchmark()
             metrics = bencher.benchmark_model(
-                model=agent, 
+                model=agent,
                 episode_fn=lambda m: evaluate_snn(bench_env, m, sticky_action=False),
                 num_episodes=bench_cfg.get('num_episodes_for_benchmark', 50),
-                model_type="ANN"
+                model_type="ANN",
             )
-            
-            with open(os.path.join(config['log_dir'], "benchmark_metrics.json"), "w") as f:
-                json.dump(metrics.__dict__, f, indent=4)
+
+            # Use dataclasses.asdict so the nested SOPEnergyResult serialises cleanly.
+            # The old metrics.__dict__ call would raise TypeError on the `sop` field.
+            out_path = os.path.join(config['log_dir'], "benchmark_metrics.json")
+            with open(out_path, "w") as f:
+                json.dump(_metrics_to_dict(metrics), f, indent=4)
+            logger.info(f"Benchmark metrics saved to {out_path}")
+
         except Exception as e:
             logger.error(f"Benchmark failed: {e}")
     else:
@@ -308,7 +333,8 @@ def main():
     if wandb.run:
         wandb.finish()
 
-    logger.info(f"--- Finished Successfully ---")
+    logger.info("--- Finished Successfully ---")
+
 
 if __name__ == "__main__":
     main()
