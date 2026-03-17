@@ -1,31 +1,31 @@
 # Spiking Temporal Critic (STC)
 
-A research framework for training neuromorphic agents with **Proximal Policy Optimisation (PPO)**, featuring a novel *timing-based* Spiking Neural Network (SNN) critic that encodes value estimates via first-spike latency — the **Spiking Temporal Critic (STC)**.
+A research framework for training neuromorphic agents with **Proximal Policy Optimisation (PPO)**, featuring a novel _timing-based_ Spiking Neural Network (SNN) critic that encodes value estimates via first-spike latency — the **Spiking Temporal Critic (STC)**.
 
 ---
 
 ## Overview
 
-Biological neural circuits encode information not only through spike *rate* but also through precise spike *timing*.  This repository investigates whether that temporal coding principle can improve reinforcement learning by replacing a conventional ANN value critic with an SNN whose output neuron fires earlier for high-value states and later (or not at all) for low-value states.
+Biological neural circuits encode information not only through spike _rate_ but also through precise spike _timing_. This repository investigates whether that temporal coding principle can improve reinforcement learning by replacing a conventional ANN value critic with an SNN whose output neuron fires earlier for high-value states and later (or not at all) for low-value states.
 
 ### Key Components
 
-| Module | Description |
-|--------|-------------|
-| `SNNTimingCritic` | Timing-based SNN critic — value is the soft first-spike time mapped to a scalar |
-| `SNNSpikeActor` | Spike-count SNN actor with Poisson input encoding and potential fallback |
-| `SNNSpikeValueCritic` | Rate-coded SNN critic (baseline for ANN→SNN conversion) |
-| `ActorCritic` | Generic wrapper supporting critic-informed actor variants |
+| Module                | Description                                                                     |
+| --------------------- | ------------------------------------------------------------------------------- |
+| `SNNTimingCritic`     | Timing-based SNN critic — value is the soft first-spike time mapped to a scalar |
+| `SNNSpikeActor`       | Spike-count SNN actor with Poisson input encoding and potential fallback        |
+| `SNNSpikeValueCritic` | Rate-coded SNN critic (baseline for ANN→SNN conversion)                         |
+| `ActorCritic`         | Generic wrapper supporting critic-informed actor variants                       |
 
 ### Experiment Configurations
 
-| Mode | Actor | Critic | Config key |
-|------|-------|--------|------------|
-| ANN Baseline | ANN MLP | ANN MLP | `ann_baseline` |
-| SNN Actor + ANN Critic | SNN (spike-count) | ANN MLP | `snn_actor_ann_critic` |
-| **STC (ours)** | SNN (spike-count) | SNN (timing) | `snn_actor_snn_timing_critic` |
-| ANN→SNN Actor | Converted SNN | ANN MLP | `ann2snn_actor` |
-| ANN→SNN Full | Converted SNN | Converted SNN | `ann2snn_both` |
+| Mode                   | Actor             | Critic        | Config key                    |
+| ---------------------- | ----------------- | ------------- | ----------------------------- |
+| ANN Baseline           | ANN MLP           | ANN MLP       | `ann_baseline`                |
+| SNN Actor + ANN Critic | SNN (spike-count) | ANN MLP       | `snn_actor_ann_critic`        |
+| **STC (ours)**         | SNN (spike-count) | SNN (timing)  | `snn_actor_snn_timing_critic` |
+| ANN→SNN Actor          | Converted SNN     | ANN MLP       | `ann2snn_actor`               |
+| ANN→SNN Full           | Converted SNN     | Converted SNN | `ann2snn_both`                |
 
 ---
 
@@ -148,13 +148,13 @@ SUITE=tmaze TMAZE_ACTIVE=true SEED_COUNT=5 ./run_experiments.sh
 
 ## Environments
 
-| Environment | ID | Description |
-|-------------|----|-------------|
-| CartPole-v1 | `CartPole-v1` | Classic balancing task |
-| T-Maze (passive) | `tmaze-v0` | Memory-dependent navigation, fixed cue |
-| T-Maze (active) | `tmaze-v0` (active=true) | Memory-dependent navigation, distractor cues |
-| FetchReachDense-v4 | `FetchReachDense-v4` | Robotic arm reaching (continuous) |
-| Proof-of-concept | `CartPole-v1` (partial obs) | Partial-observation variant of CartPole |
+| Environment        | ID                          | Description                                  |
+| ------------------ | --------------------------- | -------------------------------------------- |
+| CartPole-v1        | `CartPole-v1`               | Classic balancing task                       |
+| T-Maze (passive)   | `tmaze-v0`                  | Memory-dependent navigation, fixed cue       |
+| T-Maze (active)    | `tmaze-v0` (active=true)    | Memory-dependent navigation, distractor cues |
+| FetchReachDense-v4 | `FetchReachDense-v4`        | Robotic arm reaching (continuous)            |
+| Proof-of-concept   | `CartPole-v1` (partial obs) | Partial-observation variant of CartPole      |
 
 ---
 
@@ -171,13 +171,13 @@ Encodes the value of a state via **first-spike latency**:
 
 Key hyperparameters (`snn` section of config):
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `critic_T` | `8` | Simulation window length |
-| `Rmax` | `500.0` | Value assigned to earliest spike |
-| `Rmin` | `0.0` | Value assigned to latest / no spike |
-| `critic_cosh_alpha` | `10.0` | Cosh surrogate gradient scale |
-| `critic_spike_temp` | `25.0` | Sigmoid temperature for soft spike-time |
+| Parameter           | Default | Description                             |
+| ------------------- | ------- | --------------------------------------- |
+| `critic_T`          | `32`    | Simulation window length                |
+| `Rmax`              | `500.0` | Value assigned to earliest spike        |
+| `Rmin`              | `0.0`   | Value assigned to latest / no spike     |
+| `critic_cosh_alpha` | `10.0`  | Cosh surrogate gradient scale           |
+| `critic_spike_temp` | `25.0`  | Sigmoid temperature for soft spike-time |
 
 ### `SNNSpikeActor`
 
@@ -189,7 +189,7 @@ Encodes policy logits via **accumulated synaptic current** over `T` steps:
 
 ### `ActorCritic` wrapper
 
-Supports *critic-informed actor* mode where the critic's value estimate is
+Supports _critic-informed actor_ mode where the critic's value estimate is
 normalised and injected as an additional input to the actor, enabling
 value-modulated policy updates.
 
@@ -224,16 +224,16 @@ python post_analysis/paired_seed_stats.py \
 
 ## Configuration Reference
 
-All experiments are controlled by YAML config files in `configs/`.  Key sections:
+All experiments are controlled by YAML config files in `configs/`. Key sections:
 
 ```yaml
-env:          # Environment ID, number of parallel envs, frame-stacking
-training:     # Rollout length, total updates, batch size, update epochs
-ppo:          # Learning rate, clip epsilon, entropy coefficient, KL target
-model:        # Architecture mode, hidden dim, critic_informs_actor flag
-snn:          # SNN-specific: T, beta, V_th, surrogate params, Rmax/Rmin
-benchmark:    # Inference energy measurement settings
-reporting:    # Plot saving, W&B integration
+env: # Environment ID, number of parallel envs, frame-stacking
+training: # Rollout length, total updates, batch size, update epochs
+ppo: # Learning rate, clip epsilon, entropy coefficient, KL target
+model: # Architecture mode, hidden dim, critic_informs_actor flag
+snn: # SNN-specific: T, beta, V_th, surrogate params, Rmax/Rmin
+benchmark: # Inference energy measurement settings
+reporting: # Plot saving, W&B integration
 ```
 
 ---
@@ -244,7 +244,7 @@ If you use this code in your research, please cite:
 
 ```bibtex
 @misc{mbah2024stc,
-  title   = {Spiking Temporal Critic: Value Encoding via First-Spike Latency for Neuromorphic Reinforcement Learning},
+  title   = {Spiking Temporal Critic: Latency-Coded Value Learning In Spiking Actor-Critc Reinforcement Learning},
   author  = {Mbah, Samuel},
   year    = {2024},
   url     = {https://github.com/Samuel-Mbah/spiking-temporal-critic-stc}
