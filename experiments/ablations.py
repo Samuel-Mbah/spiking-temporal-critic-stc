@@ -428,7 +428,7 @@ def _print_table(rows: List[EvalRow]) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser("TMaze evaluation-only ablations")
     parser.add_argument("--ann-config", type=str, default="configs/tmaze/ann_baseline.yaml")
-    parser.add_argument("--snn-config", type=str, default="configs/tmaze/snn_actor_snntiming_critic.yaml")
+    parser.add_argument("--snn-config", type=str, default="configs/tmaze/snn_actor_snn_timing_critic.yaml")
     parser.add_argument("--ann-checkpoint", type=str, default=None)
     parser.add_argument("--snn-checkpoint", type=str, default=None)
     parser.add_argument(
