@@ -1,3 +1,7 @@
+"""Surrogate gradient functions for backpropagation through discrete spike events.
+
+Implements FastSigmoid and CoshFunction surrogate gradients compatible with snntorch.
+"""
 import torch
 import torch.nn as nn
 from typing import Any

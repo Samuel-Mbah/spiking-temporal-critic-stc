@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Run critic-to-actor coupling ablations for snn_actor_snntiming_critic across:
+Run critic-to-actor coupling ablations for snn_actor_snn_timing_critic across:
   - CartPole
   - PO-CartPole
   - T-Maze Passive
@@ -38,7 +38,7 @@ def build_active_tmaze_config(base_cfg_path: Path) -> Path:
 
     tmp = tempfile.NamedTemporaryFile(
         mode="w",
-        suffix="_snn_actor_snntiming_critic_tmaze_active.yaml",
+        suffix="_snn_actor_snn_timing_critic_tmaze_active.yaml",
         delete=False,
         dir="/tmp",
         encoding="utf-8",
@@ -100,7 +100,7 @@ def write_combined_tables(summary_paths: dict[str, Path], out_dir: Path) -> None
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Run coupling ablations for snn_actor_snntiming_critic on all environments and summarize."
+        description="Run coupling ablations for snn_actor_snn_timing_critic on all environments and summarize."
     )
     parser.add_argument(
         "--python-exec",
@@ -132,9 +132,9 @@ def main() -> None:
     ablation_script = REPO_ROOT / "post_analysis" / "critic_informs_actor_ablation.py"
     summary_script = REPO_ROOT / "post_analysis" / "summarize_critic_informs_actor_ablation.py"
 
-    cfg_cart = REPO_ROOT / "configs" / "cartpole" / "snn_actor_snntiming_critic.yaml"
-    cfg_poc = REPO_ROOT / "configs" / "poc" / "snn_actor_snntiming_critic.yaml"
-    cfg_tmaze_passive = REPO_ROOT / "configs" / "tmaze" / "snn_actor_snntiming_critic.yaml"
+    cfg_cart = REPO_ROOT / "configs" / "cartpole" / "snn_actor_snn_timing_critic.yaml"
+    cfg_poc = REPO_ROOT / "configs" / "poc" / "snn_actor_snn_timing_critic.yaml"
+    cfg_tmaze_passive = REPO_ROOT / "configs" / "tmaze" / "snn_actor_snn_timing_critic.yaml"
     cfg_tmaze_active = build_active_tmaze_config(cfg_tmaze_passive)
 
     run_specs = [

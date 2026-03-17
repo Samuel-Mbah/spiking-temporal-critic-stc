@@ -4,7 +4,7 @@
 declare -A experiments
 experiments["ann_baseline"]="ann_baseline.py|ann_baseline.yaml"
 experiments["snn_actor_ann_critic"]="snn_actor_ann_critic.py|snn_actor_ann_critic.yaml"
-experiments["snn_actor_snntiming_critic"]="snn_actor_snntiming_critic.py|snn_actor_snntiming_critic.yaml"
+experiments["snn_actor_snn_timing_critic"]="snn_actor_snn_timing_critic.py|snn_actor_snn_timing_critic.yaml"
 experiments["ann2snn_full"]="ann2snn_both.py|ann2snn_both.yaml"
 experiments["ann2snn_actor"]="ann2snn_actor.py|ann2snn_actor.yaml"
 

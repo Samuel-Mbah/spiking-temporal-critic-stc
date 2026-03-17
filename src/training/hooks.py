@@ -1,3 +1,7 @@
+"""Training hooks for custom callbacks.
+
+Includes ``EnergyHook`` for GPU power monitoring via pynvml.
+"""
 import time
 import torch
 import logging

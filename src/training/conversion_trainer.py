@@ -1,3 +1,8 @@
+"""Orchestrates the ANN-to-SNN conversion training workflow.
+
+Stages: train ANN baseline → calibrate activation ranges → convert to SNN
+→ validate → fine-tune → evaluate and compare.
+"""
 import os
 import time
 import logging
@@ -13,7 +18,7 @@ from typing import Dict, Any, Tuple, Optional
 
 # --- Project Imports ---
 from src.conversion.verification import verify_actor_conversion, verify_critic_conversion
-from src.models.ActorCritic import ActorCritic
+from src.models.actor_critic import ActorCritic
 from src.models.ann import Actor, Critic
 
 from src.training.core_trainer import CoreTrainer

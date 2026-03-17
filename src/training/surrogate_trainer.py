@@ -1,3 +1,8 @@
+"""Entry point for training SNN agents end-to-end with surrogate-gradient PPO.
+
+Handles SNN-specific monitoring: latency probing, energy benchmarking,
+and spike-statistics collection throughout training.
+"""
 import os
 import time
 import torch

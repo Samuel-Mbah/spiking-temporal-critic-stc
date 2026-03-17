@@ -714,7 +714,7 @@ def _write_corr_markdown(corr_rows: List[Dict[str, Any]], out_md: Path) -> None:
 def main() -> None:
     p = argparse.ArgumentParser("Generate multi-seed T-Maze timing-critic mechanistic thesis figures.")
     p.add_argument("--logs-root", type=str, default="results/logs/masters")
-    p.add_argument("--config", type=str, default="configs/tmaze/snn_actor_snntiming_critic.yaml")
+    p.add_argument("--config", type=str, default="configs/tmaze/snn_actor_snn_timing_critic.yaml")
     p.add_argument("--eval-episodes-per-seed", type=int, default=50)
     p.add_argument("--eval-seed-base", type=int, default=4242)
     p.add_argument("--frame-stack", type=int, default=None)
@@ -739,12 +739,12 @@ def main() -> None:
     splits = [
         SplitSpec(
             name="tmaze_active",
-            run_dir=logs_root / "tmaze_active" / "tmaze_snn_actor_snntiming_critic_active",
+            run_dir=logs_root / "tmaze_active" / "tmaze_snn_actor_snn_timing_critic_active",
             active=True,
         ),
         SplitSpec(
             name="tmaze_passive",
-            run_dir=logs_root / "tmaze_passive" / "tmaze_snn_actor_snntiming_critic_passive",
+            run_dir=logs_root / "tmaze_passive" / "tmaze_snn_actor_snn_timing_critic_passive",
             active=False,
         ),
     ]

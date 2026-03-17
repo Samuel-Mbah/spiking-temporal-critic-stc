@@ -1,3 +1,8 @@
+"""Timing-based SNN critic that encodes value estimates via first-spike latency.
+
+Higher-value states produce earlier output spikes; lower-value states produce
+later spikes or no spike within the simulation window.
+"""
 import torch
 import torch.nn as nn
 import snntorch as snn
@@ -9,11 +14,9 @@ from src.models.snn_utils import poisson_encode
 class SNNTimingCritic(nn.Module):
     """
     Timing-based SNN critic.
-    Value is encoded by FIRST spike timing of output neuron.
-    
-    Merged Version:
-    - Logic: Matches 'cartpole/src' (Working version)
-    - Structure: Includes 'root' version utilities (reset_stats, forward_detailed)
+
+    Value is encoded by the FIRST spike timing of the output neuron: earlier spikes
+    map to higher values and later (or absent) spikes map to lower values.
     """
 
     def __init__(
@@ -23,8 +26,8 @@ class SNNTimingCritic(nn.Module):
         *,
         beta: float = 0.95,
         V_th: float = 1.0,
-        critic_T: int = 8,        # RESTORED: Working default (8) instead of Root (32)
-        Rmax: float = 500.0,      # RESTORED: Working default (500) instead of Root (100)
+        critic_T: int = 8,
+        Rmax: float = 500.0,
         Rmin: float = 0.0,
         gamma: float = 0.99,
         spike_temp: float = 25.0,
@@ -32,7 +35,7 @@ class SNNTimingCritic(nn.Module):
         rate_scale: float = 1.0,
         cosh_alpha: float = 10.0,
         cosh_beta: float = 1.0,
-        use_hard_no_spike: bool = False, # RESTORED: Default False
+        use_hard_no_spike: bool = False,
         scale_by_discount: bool = False,
         value_affine: bool = False,
     ):
@@ -51,7 +54,6 @@ class SNNTimingCritic(nn.Module):
 
         sg = cosh_surrogate(alpha=cosh_alpha, beta=cosh_beta)
 
-        # --- Network (Standard Init - No Positive Bias Hack) ---
         self.block1 = SNNBlock(
             nn.Linear(in_dim, hid_dim),
             snn.Leaky(beta=beta, threshold=V_th, spike_grad=sg),
@@ -119,10 +121,6 @@ class SNNTimingCritic(nn.Module):
         v[~pos] = (tau[~pos] - half) * neg_scale
 
         return v
-        
-        # alpha = tau / float(self.T)
-        # v = (1.0 - alpha) * self.Rmax + alpha * self.Rmin
-        # return v
 
     # ------------------------------------------------------------------
     # Forward
@@ -188,7 +186,6 @@ class SNNTimingCritic(nn.Module):
         spike_energy = 0.0
         v_traj = []
 
-        # RESTORED: Standard Input Handling (No forced rate scaling on direct input)
         if self.poisson_encode:
             spk_in = poisson_encode(obs, self.T, self.rate_scale)
         else:
@@ -209,20 +206,17 @@ class SNNTimingCritic(nn.Module):
 
         self._last_reg = spike_energy / self.T
 
-        v_traj = torch.cat(v_traj, dim=0)  # [T,B,1]
+        v_traj = torch.cat(v_traj, dim=0)  # [T, B, 1]
 
-        # Calculate Timing (Tau)
         tau = self._soft_first_spike_time(v_traj)
         self._last_latency = float(tau.mean().item())
 
-        # Map Tau to Value
         v = self._map_tau_to_value(tau)
 
         if self.use_hard_no_spike:
             no_spike = (v_traj.squeeze(-1) > self.V_th).any(dim=0) == 0
             v[no_spike] = self.Rmin
 
-        # Value Mapping & Clamping
         v = v.clamp(self.Rmin, self.Rmax).unsqueeze(-1)
         v = self.value_mapper(v)
         v = v.clamp(self.Rmin, self.Rmax)
@@ -230,7 +224,7 @@ class SNNTimingCritic(nn.Module):
         return v, tau
 
     # ------------------------------------------------------------------
-    # Stats & Metrics (Adopted from Root for completeness)
+    # Stats & Metrics
     # ------------------------------------------------------------------
 
     def regulariser(self):
@@ -243,72 +237,3 @@ class SNNTimingCritic(nn.Module):
         self.block1.reset_stats()
         self.block2.reset_stats()
         self.block_out.reset_stats()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

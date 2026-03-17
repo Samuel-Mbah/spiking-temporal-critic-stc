@@ -1,3 +1,8 @@
+"""Environment construction, vectorisation, and observation wrappers.
+
+Supports frame-stacking, partial-observation masking, and running-statistics
+normalisation via ``VecNormalize``.
+"""
 import cv2
 import logging
 import random

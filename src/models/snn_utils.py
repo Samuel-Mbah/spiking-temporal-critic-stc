@@ -1,3 +1,4 @@
+"""Utility functions for SNN construction: Poisson encoding and LIF state initialisation."""
 import torch
 from typing import Tuple, List
 

@@ -1,3 +1,8 @@
+"""Evaluation protocols for ANN and SNN agents.
+
+Provides deterministic rollout evaluation, spike-statistics extraction,
+and latency/energy measurement helpers.
+"""
 import torch
 import numpy as np
 import time

@@ -1,3 +1,8 @@
+"""Custom T-Maze gridworld environment for memory-dependent navigation tasks.
+
+Supports variable-length corridors, active/passive variants, and one-hot
+observation encoding.  Compatible with the Gymnasium API.
+"""
 import random
 import numpy as np
 import gymnasium as gym

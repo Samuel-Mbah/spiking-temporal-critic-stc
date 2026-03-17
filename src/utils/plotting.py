@@ -270,7 +270,7 @@ def _experiment_color(exp_name: str, default: str = "tab:blue") -> str:
         "snn_actor_ann_critic": "tab:green",
         "ann2snn_actor": "tab:orange",
         "ann2snn_both": "tab:red",
-        "snn_actor_snntiming_critic": "tab:purple",
+        "snn_actor_snn_timing_critic": "tab:purple",
     }
     return styles.get(exp_name, default)
 
@@ -1187,7 +1187,7 @@ def plot_energy_vs_steps(
 def plot_spikes_vs_steps(
     df: Union[pd.DataFrame, Sequence[pd.DataFrame]],
     save_path: str,
-    exp_name: str = "snn_actor_snntiming_critic",
+    exp_name: str = "snn_actor_snn_timing_critic",
     config: Optional[Dict] = None,
     **kwargs
 ):
@@ -1446,7 +1446,7 @@ def plot_spikes_vs_steps(
 def plot_latency_vs_steps(
     df: Union[pd.DataFrame, Sequence[pd.DataFrame]],
     save_path: str,
-    exp_name: str = "snn_actor_snntiming_critic",
+    exp_name: str = "snn_actor_snn_timing_critic",
     config: Optional[Dict] = None,
     env_name: Optional[str] = None,
     window: int = 50,
@@ -1573,7 +1573,7 @@ def plot_output_readout_validation(
     threshold: float = 1.0,
     reset_val: float = 0.0,
     is_internal_window: bool = True, # New flag
-    exp_name: str = "snn_actor_snntiming_critic",
+    exp_name: str = "snn_actor_snn_timing_critic",
     title: str = "Critic Output Neuron Dynamics",
     **kwargs,
 ):
@@ -1787,7 +1787,7 @@ def plot_conversion_validation(
 def plot_energy_vs_spikes(
     df: Union[pd.DataFrame, Sequence[pd.DataFrame]],
     save_path: str,
-    exp_name: str = "snn_actor_snntiming_critic",
+    exp_name: str = "snn_actor_snn_timing_critic",
     env_name: str = "T-Maze",
     **kwargs
 ):
@@ -1894,7 +1894,7 @@ def plot_energy_vs_spikes(
 def plot_reward_vs_spikes(
     df: Union[pd.DataFrame, Sequence[pd.DataFrame]],
     save_path: str,
-    exp_name: str = "snn_actor_snntiming_critic",
+    exp_name: str = "snn_actor_snn_timing_critic",
     env_name: str = "CartPole",
     config: Optional[Dict] = None,
     threshold: Optional[float] = None,
@@ -2039,7 +2039,7 @@ def plot_reward_vs_spikes(
 def plot_latency_vs_spikes(
     df: Union[pd.DataFrame, Sequence[pd.DataFrame]],
     save_path: str,
-    exp_name: str = "snn_actor_snntiming_critic",
+    exp_name: str = "snn_actor_snn_timing_critic",
     env_name: str = "CartPole",
     component: str = "Actor", # 'Actor' or 'Critic'
     **kwargs
@@ -2336,7 +2336,7 @@ def plot_intra_episode_values(
         'snn_actor_ann_critic': {'color': 'tab:green', 'ls': '--', 'lw': 2.5},
         'ann2snn_actor': {'color': 'tab:orange', 'ls': '-.', 'lw': 2.5},
         'ann2snn_both': {'color': 'tab:red', 'ls': ':', 'lw': 2.5},
-        'snn_actor_snntiming_critic': {'color': 'tab:purple', 'ls': '-', 'lw': 3, 'marker': 'o', 'markersize': 5}
+        'snn_actor_snn_timing_critic': {'color': 'tab:purple', 'ls': '-', 'lw': 3, 'marker': 'o', 'markersize': 5}
     }
     
     # Get standard style, or fallback to a default if exp_name is custom

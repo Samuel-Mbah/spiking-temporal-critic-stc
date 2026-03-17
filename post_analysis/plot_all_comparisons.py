@@ -31,7 +31,7 @@ plt.rcParams['lines.linewidth'] = 2.5
 EXPERIMENTS = {
     "ANN Baseline": {"path": "results/logs/ann_baseline_no_fs", "color": "#1f77b4"},
     "SNN Actor (ANN Critic)": {"path": "results/logs/snn_actor_ann_critic_no_fs", "color": "#ff7f0e"},
-    "SNN Actor (Timing Critic)": {"path": "results/logs/snn_actor_snntiming_critic_no_fs", "color": "#9467bd"},
+    "SNN Actor (Timing Critic)": {"path": "results/logs/snn_actor_snn_timing_critic_no_fs", "color": "#9467bd"},
     "ANN2SNN Full": {"path": "results/logs/ann2snn_full_no_fs", "color": "#d62728"},
     "ANN2SNN Actor": {"path": "results/logs/ann2snn_actor_no_fs", "color": "#9467bd"}
 }
@@ -39,7 +39,7 @@ EXPERIMENTS = {
 EXPERIMENT_CONFIGS = {
     "ANN Baseline": "configs/cartpole/ann_baseline.yaml",
     "SNN Actor (ANN Critic)": "configs/cartpole/snn_actor_ann_critic.yaml",
-    "SNN Actor (Timing Critic)": "configs/cartpole/snn_actor_snntiming_critic.yaml",
+    "SNN Actor (Timing Critic)": "configs/cartpole/snn_actor_snn_timing_critic.yaml",
     "ANN2SNN Full": "configs/cartpole/ann2snn_full.yaml",
     "ANN2SNN Actor": "configs/cartpole/ann2snn_actor.yaml",
 }
@@ -71,7 +71,7 @@ def _canonical_exp_name(display_name: str) -> str:
     if "ann baseline" in name:
         return "ann_baseline"
     if "timing critic" in name:
-        return "snn_actor_snntiming_critic"
+        return "snn_actor_snn_timing_critic"
     if "snn actor (ann critic)" in name:
         return "snn_actor_ann_critic"
     if "ann2snn full" in name:

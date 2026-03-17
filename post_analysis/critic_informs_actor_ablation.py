@@ -13,8 +13,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 MODE_TO_SCRIPT = {
     "ann": "ann_baseline.py",
     "snn_actor_ann_critic": "snn_actor_ann_critic.py",
-    "snn_actor_snn_critic": "snn_actor_snntiming_critic.py",
-    "snn_actor_snn_timing_critic": "snn_actor_snntiming_critic.py",
+    "snn_actor_snn_critic": "snn_actor_snn_timing_critic.py",
+    "snn_actor_snn_timing_critic": "snn_actor_snn_timing_critic.py",
 }
 
 
@@ -105,7 +105,7 @@ def main() -> None:
         "--script",
         type=str,
         default=None,
-        help="Optional experiment script override (e.g., snn_actor_snntiming_critic.py)",
+        help="Optional experiment script override (e.g., snn_actor_snn_timing_critic.py)",
     )
     parser.add_argument(
         "--python_exec",

@@ -1,3 +1,4 @@
+"""Generic actor-critic wrapper for PPO with optional critic-informed actor support."""
 from typing import Generic, TypeVar, Optional, Tuple
 import torch
 import torch.nn as nn

@@ -1,3 +1,4 @@
+"""Single SNN layer: Linear transformation followed by a Leaky Integrate-and-Fire neuron."""
 import torch
 import torch.nn as nn
 import snntorch as snn
