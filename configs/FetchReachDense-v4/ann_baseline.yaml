@@ -1,7 +1,8 @@
 run_name: "ANN_FetchReach_v0"
-project_name: "cartpole-snn-project"
+project_name: "fetchreach-snn-project"
 log_dir: "results/logs/fetchreach_ann"
 plots_dir: "results/plots/fetchreach_ann"
+video_dir: "results/videos/fetchreach_ann"
 wandb_dir: "results/wandb/fetchreach_ann"
 
 save_ckpt: true

@@ -1,6 +1,6 @@
 # Research-grade SNN Actor + ANN Critic for FetchReach
 run_name: "SNN_Actor_ANN_Critic_FetchReach_v1"
-project_name: "cartpole-snn-project"
+project_name: "fetchreach-snn-project"
 log_dir: "results/logs/fetchreach_snn_actor_ann_critic"
 plots_dir: "results/plots/fetchreach_snn_actor_ann_critic"
 video_dir: "results/videos/fetchreach_snn_actor_ann_critic"
@@ -19,11 +19,10 @@ experiment_meta:
 
 env:
   id: "FetchReachDense-v4"
-  kwargs: {}                   # Removed T-Maze specific kwargs
+  kwargs: {}
   n_envs: 8
   vec_normalize: true          # CRITICAL: True for continuous robotics states
   max_episode_steps: 50        # FetchReach default horizon is 50 steps
-  # Removed partial_obs mask
   frame_stack: 1               # Fully observable Markovian state, no memory needed
   frame_stack_flatten: true    # Flatten stacked frames for MLP/SNN input
 
@@ -81,7 +80,7 @@ snn:
   center_logits: true
 
 spike_reg:
-  lambda_spike: 0.001          # Copied from your recent update
+  lambda_spike: 0.001
 
 sticky_action:
   train: false
@@ -91,7 +90,7 @@ benchmark:
   measure_inference_energy: false
   energy_runs_per_measure: 5
   run_for_ann: false
-  num_episodes_for_benchmark: 50 # 5000  # Massive increase to ensure accurate GPU power sensing
+  num_episodes_for_benchmark: 50
 
 seed_control:
   deterministic_torch: true

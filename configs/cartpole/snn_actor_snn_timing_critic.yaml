@@ -45,7 +45,7 @@ ppo:
   lr: 0.0003                  # Lower LR often needed for SNN stability
   gamma: 0.99
   lam: 0.95
-  clip_eps: 0.1  #0.1             # Stricter clipping for SNN
+  clip_eps: 0.1              # Stricter clipping for SNN
   clip_range_vf: null
   entropy_coef: 0.01
   value_coef: 1.0
@@ -91,7 +91,7 @@ snn:
   critic_poisson_encode: false
 
   # surrogate gradient parameters for critic timing
-  critic_cosh_alpha: 2.0  # 2.0
+  critic_cosh_alpha: 2.0
   critic_cosh_beta: 1.0
   critic_use_hard_no_spike: true
 

@@ -3,7 +3,7 @@
 # Phase 2: Full Conversion & Fine-tuning
 
 run_name: "ANN2SNN_Full_TMaze_v1"
-project_name: "cartpole-snn-project"
+project_name: "tmaze-snn-project"
 log_dir: "results/logs/tmaze_ann2snn_full"
 plots_dir: "results/plots/tmaze_ann2snn_full"
 video_dir: "results/videos/tmaze_ann2snn_full"
@@ -28,7 +28,6 @@ env:
   n_envs: 8
   vec_normalize: false         # False for discrete grid inputs
   max_episode_steps: 100
-  # Removed partial_obs mask since T-Maze naturally outputs a 1D vector (4,)
   frame_stack: 4               # stack frames to compensate for hidden hint
   frame_stack_flatten: true    # flatten stacked frames for MLP input
 
@@ -115,7 +114,7 @@ reporting:
   save_plots: true
   wandb:
     use: false
-    project: "T_maze-snn-project"
+    project: "tmaze-snn-project"
     tags: ["research", "ann2snn", "full"]
 
 video:
