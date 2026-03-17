@@ -35,7 +35,7 @@ logging:
 # PHASE 1: ANN TRAINING (Matched to Baseline)
 training:
   rollout_length: 2048
-  total_updates: 500         # 1000 Updates
+  total_updates: 500         # 500 updates * 16,384 steps = ~8.19M total steps
   batch_size: 256
   update_epochs: 10
   sticky_action: false
@@ -51,14 +51,13 @@ ppo:
   value_coef: 1.0
   max_grad_norm: 0.5
   target_kl: 0.015
-  print_interval_updates: 20
+  print_interval_updates: 10
   eval_interval_updates: 20
   eval_episodes: 20
   solved_window_eval_episodes: 100
   reward_threshold: 475.0
   success_rate_threshold: 95.0
   scale_returns_to_value: false
-  print_interval_updates: 10
   print_debug: false
 
 model:

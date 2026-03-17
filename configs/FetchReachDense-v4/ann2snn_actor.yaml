@@ -1,7 +1,7 @@
 # Research-grade ANN -> SNN (Actor-Only Conversion) for FetchReach
 
 run_name: "ANN2SNN_Actor_FetchReach_v1"
-project_name: "cartpole-snn-project"
+project_name: "fetchreach-snn-project"
 log_dir: "results/logs/fetchreach_ann2snn_actor"
 plots_dir: "results/plots/fetchreach_ann2snn_actor"
 video_dir: "results/videos/fetchreach_ann2snn_actor"
@@ -20,11 +20,10 @@ experiment_meta:
 
 env:
   id: "FetchReachDense-v4"
-  kwargs: {}                   # Removed T-Maze specific kwargs
+  kwargs: {}
   n_envs: 8
   vec_normalize: true          # CRITICAL: Set to true for continuous robotics states
   max_episode_steps: 50        # FetchReach default is 50 steps
-  # Removed partial_obs mask
   frame_stack: 1               # Fully observable Markovian state, no memory needed
   frame_stack_flatten: true    
 

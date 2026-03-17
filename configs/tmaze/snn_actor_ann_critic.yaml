@@ -1,6 +1,6 @@
 # Research-grade SNN Actor + ANN Critic for T-Maze (Passive, Length 3)
 run_name: "SNN_Actor_ANN_Critic_TMaze_v1"
-project_name: "cartpole-snn-project"
+project_name: "tmaze-snn-project"
 log_dir: "results/logs/tmaze_snn_actor_ann_critic"
 plots_dir: "results/plots/tmaze_snn_actor_ann_critic"
 video_dir: "results/videos/tmaze_snn_actor_ann_critic"
@@ -25,7 +25,6 @@ env:
   n_envs: 8
   vec_normalize: false         # False for direct discrete grid inputs
   max_episode_steps: 100
-  # Removed partial_obs: T-Maze naturally outputs a 1D vector (4,), no masking needed.
   frame_stack: 4               # Stack frames to compensate for partial observability
   frame_stack_flatten: true    # Flatten stacked frames for MLP/SNN input
 
@@ -83,7 +82,7 @@ snn:
   center_logits: true
 
 spike_reg:
-  lambda_spike: 0.001          # Copied from your recent update
+  lambda_spike: 0.001
 
 sticky_action:
   train: false
@@ -93,7 +92,7 @@ benchmark:
   measure_inference_energy: false
   energy_runs_per_measure: 5
   run_for_ann: false
-  num_episodes_for_benchmark: 50 # 5000  # Massive increase to ensure accurate GPU power sensing
+  num_episodes_for_benchmark: 50
 
 seed_control:
   deterministic_torch: true
@@ -109,5 +108,5 @@ reporting:
   save_plots: true
   wandb:
     use: false
-    project: "T_maze-snn-project"
+    project: "tmaze-snn-project"
     tags: ["research", "snn", "actor-only", "poc"]

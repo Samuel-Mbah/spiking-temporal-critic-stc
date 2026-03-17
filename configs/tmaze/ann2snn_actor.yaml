@@ -1,7 +1,7 @@
 # Research-grade ANN -> SNN (Actor-Only Conversion) for T-Maze
 
 run_name: "ANN2SNN_Actor_TMaze_v1"
-project_name: "cartpole-snn-project"
+project_name: "tmaze-snn-project"
 log_dir: "results/logs/tmaze_ann2snn_actor"
 plots_dir: "results/plots/tmaze_ann2snn_actor"
 video_dir: "results/videos/tmaze_ann2snn_actor"
@@ -26,7 +26,6 @@ env:
   n_envs: 8
   vec_normalize: false         # False for discrete grid inputs
   max_episode_steps: 100
-  # Removed partial_obs: T-Maze naturally outputs a 1D vector (4,), no masking needed.
   frame_stack: 4               # stack frames to compensate for partial observability
   frame_stack_flatten: true    # flatten stacked frames for MLP input
 
@@ -114,7 +113,7 @@ reporting:
   save_plots: true
   wandb:
     use: false
-    project: "T_maze-snn-project"
+    project: "tmaze-snn-project"
     tags: ["research", "ann2snn", "actor"]
 
 video:

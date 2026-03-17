@@ -1,7 +1,8 @@
 run_name: "ANN_TMaze_v0"
-project_name: "cartpole-snn-project"
+project_name: "tmaze-snn-project"
 log_dir: "results/logs/tmaze_ann"
 plots_dir: "results/plots/tmaze_ann"
+video_dir: "results/videos/tmaze_ann"
 wandb_dir: "results/wandb/tmaze_ann"
 
 save_ckpt: true

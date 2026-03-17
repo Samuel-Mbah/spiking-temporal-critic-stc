@@ -51,12 +51,12 @@ ppo:
   lr: 0.0003                  # Lower LR often needed for SNN stability
   gamma: 0.99
   lam: 0.95
-  clip_eps: 0.1  #0.1             # Stricter clipping for SNN
+  clip_eps: 0.1              # Stricter clipping for SNN
   clip_range_vf: null
-  entropy_coef: 0.01 #0.01
-  value_coef: 0.5 #1.0
+  entropy_coef: 0.01
+  value_coef: 0.5
   max_grad_norm: 0.5
-  target_kl: 0.02  #0.01
+  target_kl: 0.02
   print_interval_updates: 20
   eval_interval_updates: 20
   eval_episodes: 20           # Robust stats
@@ -83,8 +83,7 @@ snn:
 
   # Actor
   actor_T: 16
-  actor_V_th: 0.6 #0.6
-  # actor_rate_scale: 1.0 #5.0
+  actor_V_th: 0.6
   actor_surrogate_slope: 5.0
   actor_logit_temp: 1.0
   actor_poisson_encode: false
@@ -92,13 +91,13 @@ snn:
 
   # Critic
   critic_T: 32
-  critic_V_th: 0.5 #1.0
+  critic_V_th: 0.5
   critic_rate_scale: 5.0
-  critic_spike_temp: 5.0 #10
+  critic_spike_temp: 5.0
   critic_poisson_encode: false
 
   # surrogate gradient parameters for critic timing
-  critic_cosh_alpha: 1.0  # 2.0
+  critic_cosh_alpha: 1.0
   critic_cosh_beta: 1.0
   critic_use_hard_no_spike: true
 

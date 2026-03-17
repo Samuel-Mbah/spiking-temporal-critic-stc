@@ -35,7 +35,7 @@ logging:
 # TRAINING (Matched to Baseline)
 training:
   rollout_length: 2048
-  total_updates: 500         # 1000 Updates
+  total_updates: 500         # 500 updates * 16,384 steps = ~8.19M total steps
   batch_size: 256
   update_epochs: 10
   sticky_action: false

@@ -1,6 +1,6 @@
 # Research-grade SNN Actor + SNN Timing Critic for FetchReach
 run_name: "SNN_TimingCritic_FetchReach_v1"
-project_name: "cartpole-snn-project"
+project_name: "fetchreach-snn-project"
 log_dir: "results/logs/fetchreach_snn_timing_critic"
 plots_dir: "results/plots/fetchreach_snn_timing_critic"
 video_dir: "results/videos/fetchreach_snn_timing_critic"
@@ -19,7 +19,7 @@ experiment_meta:
 
 env:
   id: "FetchReachDense-v4"
-  kwargs: {}                   # Removed T-Maze specific kwargs
+  kwargs: {}
   n_envs: 8
   vec_normalize: true          # CRITICAL: Set to true for continuous robotics states
   max_episode_steps: 50        # FetchReach default is 50 steps
@@ -133,4 +133,4 @@ reporting:
   wandb:
     use: false
     project: "fetchreach-snn-project"
-    tags: ["research", "snn", "timing-critic",]
+    tags: ["research", "snn", "timing-critic"]

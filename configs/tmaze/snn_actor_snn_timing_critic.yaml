@@ -1,6 +1,6 @@
 # Research-grade SNN Actor + SNN Timing Critic for T-Maze 
 run_name: "SNN_TimingCritic_TMaze_v1"
-project_name: "cartpole-snn-project"
+project_name: "tmaze-snn-project"
 log_dir: "results/logs/tmaze_snn_timing_critic"
 plots_dir: "results/plots/tmaze_snn_timing_critic"
 video_dir: "results/videos/tmaze_snn_timing_critic"
@@ -69,10 +69,6 @@ model:
   dropout: 0.2
   in_features: 16              # CRITICAL: 4 (obs size) * 4 (frame stack) = 16
   critic_informs_actor: false
-  # detach_critic_for_actor: true
-  # normalize_critic_for_actor: true
-  # critic_actor_value_clip: 5.0
-  # critic_actor_norm_momentum: 0.01
   actor_critic_normalize: true
 
 # SNN CONFIGURATION
