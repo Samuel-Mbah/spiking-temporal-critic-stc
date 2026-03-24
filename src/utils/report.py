@@ -150,7 +150,7 @@ def _hydrate_alias_columns(per_episode: pd.DataFrame, log_dir: Path) -> pd.DataF
         "latency/mean_ms": ["latency/mean_ms", "latency_mean_ms"],
         "latency_mean_ms": ["latency_mean_ms", "latency/mean_ms"],
         "eval/success_rate": ["eval/success_rate", "success_rate"],
-        "eval/reward": ["eval/reward", "eval/current_reward", "test_reward"],
+        "eval/reward": ["eval/current_reward", "eval/rolling_reward", "test_reward"],
     }
     for target, sources in aliases.items():
         missing = target not in df.columns or df[target].isna().all()

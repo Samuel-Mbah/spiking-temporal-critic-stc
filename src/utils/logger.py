@@ -27,7 +27,7 @@ class MetricEvent:
     step: int
     iteration: int
     timestamp: float
-    phase: str 
+    phase: str
 
 
 class PPOLogger:
@@ -40,12 +40,10 @@ class PPOLogger:
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.window = window
 
-        # --- Storage ---
         self.history: Dict[str, List[MetricEvent]] = defaultdict(list)
         self.buffers: Dict[str, deque] = defaultdict(lambda: deque(maxlen=window))
         self.step_info: List[Dict[str, Any]] = []
 
-        # --- State ---
         self.num_timesteps = 0
         self.iteration = 0
         self.n_updates = 0
@@ -90,31 +88,35 @@ class PPOLogger:
             step=self.num_timesteps,
             iteration=self.iteration,
             timestamp=time.time(),
-            phase=self.current_phase
+            phase=self.current_phase,
         )
         self.history[key].append(event)
 
         if not exclude_from_console:
             self.buffers[key].append(val)
 
-    def record_episode(self, reward: float, length: int, success: bool = False, source: str = "train"):
+    def record_episode(
+        self,
+        reward: float,
+        length: int,
+        success: bool = False,
+        source: str = "train",
+    ):
         """
         Special handler for episode boundaries.
-        Args:
-            source: 'train' or 'eval' (matches baseline_trainer.py)
+
+        Keys written:
+          {source}/current_reward  — most recent single-episode reward
+          {source}/episode_length  — episode step count
+          {source}/success_rate    — success flag / percentage
         """
-        # Map source to prefix if necessary, or use directly
-        prefix = source 
-        self.record(f"{prefix}/reward", reward)
-        self.record(f"{prefix}/ep_len", length)
-        self.record(f"{prefix}/success_rate", float(success))
+        self.record(f"{source}/current_reward", reward)
+        self.record(f"{source}/episode_length", length)
+        self.record(f"{source}/success_rate",   float(success))
 
     def record_step_info(self, **kwargs):
-        """
-        Log metadata for the current update (FPS, time, etc).
-        Accepts arbitrary kwargs (updates, timesteps, fps).
-        """
-        info = kwargs
+        """Log metadata for the current update (FPS, time, etc)."""
+        info = dict(kwargs)
         info['timestamp'] = time.time()
         info['step'] = self.num_timesteps
         self.step_info.append(info)
@@ -148,39 +150,37 @@ class PPOLogger:
 
         sections = {
             "Status": [
-                ("Updates", self.n_updates, 'raw'),
-                ("Timesteps", self.num_timesteps, 'raw'),
-                ("Time", time_str, 'raw'),
-                ("FPS", last_info.get("fps", np.nan), 'raw'),
+                ("Updates",   self.n_updates,               "raw"),
+                ("Timesteps", self.num_timesteps,            "raw"),
+                ("Time",      time_str,                      "raw"),
+                ("FPS",       last_info.get("fps", np.nan),  "raw"),
             ],
             "Training": [
-                ("Policy Loss", "train/policy_loss", 'last'),
-                ("Value Loss", "train/value_loss", 'last'),
-                ("Explained Var", "train/explained_variance", 'last'),
-                ("Entropy", "train/entropy", 'last'),
-                ("Approx KL", "train/approx_kl", 'last'),
-                ("Clip Frac", "train/clip_fraction", 'last'),
-                ("LR", "train/lr", 'last'),
+                ("Policy Loss",   "train/policy_loss",        "last"),
+                ("Value Loss",    "train/value_loss",         "last"),
+                ("Explained Var", "train/explained_variance", "last"),
+                ("Entropy",       "train/entropy",            "last"),
+                ("Approx KL",     "train/approx_kl",          "last"),
+                ("Clip Frac",     "train/clip_fraction",      "last"),
+                ("LR",            "train/learning_rate",      "last"),
             ],
             "Performance": [
-                ("Train Reward", "train/reward", 'mean'),
-                ("Eval (Current)", "eval/reward", 'last'),
-                ("Eval (100-ep)", "eval/mean_100ep", 'last'),
-                ("Success Rate", "train/success_rate", 'mean'),
-                ("Ep Length", "train/ep_len", 'mean'),
+                ("Train Reward",   "train/rollout_reward", "mean"),
+                ("Eval (Current)", "eval/current_reward",  "last"),
+                ("Eval (Rolling)", "eval/rolling_reward",  "last"),
+                ("Success Rate",   "eval/success_rate",    "last"),
+                ("Ep Length",      "eval/episode_length",  "last"),
             ],
             "SNN / Spikes": [
-                ("Total Spikes (Rollout)", "spikes/total", 'mean'),
-                ("Spikes/Step", "spikes/per_step", 'mean'),
-                ("Firing Rate", "spikes/firing_rate", 'mean'),
-                ("Sparsity (%)", "spikes/sparsity", 'mean'),
-                ("Mean Latency", "latency/mean_ms", 'mean'),
+                ("Total Spikes (Eval)", "spikes/eval_total",        "mean"),
+                ("Sparsity",           "spikes/eval_sparsity",      "mean"),
+                ("No-Spike Rate",      "spikes/eval_no_spike_rate", "mean"),
+                ("Mean Latency",       "latency/mean_ms",           "mean"),
             ],
-             # Phase 3: Post-Conversion / Zero-Shot
             "Zero-Shot": [
-                 ("ZS Reward", "post_conversion/zero_shot_reward", 'last'),
-                 ("ZS Energy", "post_conversion/inference_energy", 'last'),
-            ]
+                ("ZS Reward", "post_conversion/zero_shot_reward", "last"),
+                ("ZS Energy", "post_conversion/zs_energy",        "last"),
+            ],
         }
 
         print("=" * 48)
@@ -188,14 +188,14 @@ class PPOLogger:
             valid_items = []
             for label, key_or_val, mode in items:
                 val = np.nan
-                if mode == 'raw':
+                if mode == "raw":
                     val = key_or_val
-                elif mode == 'mean':
+                elif mode == "mean":
                     val = self._get_mean(key_or_val)
-                elif mode == 'last':
+                elif mode == "last":
                     val = self._get_last(key_or_val)
 
-                if mode == 'raw' or (isinstance(val, Number) and not np.isnan(val)):
+                if mode == "raw" or (isinstance(val, Number) and not np.isnan(val)):
                     valid_items.append((label, val))
 
             if not valid_items:
@@ -227,7 +227,7 @@ class PPOLogger:
             for k, events in self.history.items()
         }
         target_file = self.log_dir / "metrics_raw.json"
-        temp_file = self.log_dir / "metrics_raw.tmp"
+        temp_file   = self.log_dir / "metrics_raw.tmp"
 
         try:
             with open(temp_file, "w") as f:
@@ -240,57 +240,57 @@ class PPOLogger:
         """
         Exports a 'Learning Curve' CSV where ANN and SNN phases are aligned.
         """
-        # Mapping definitions (Column Name -> Internal Key)
         ann_map = {
-            "ann_reward": "train/rollout_reward", # Mapped via trainer
-            "train_reward": "train/reward",       # Standard log
-            "ann_energy": "energy/train_rollout",
-            "ann_timesteps": "total_timesteps_ann"
+            "ann_reward":   "train/rollout_reward",
+            "train_reward": "train/rollout_reward",
+            "ann_energy":   "energy/train_full_update",
+            "ann_timesteps": "total_timesteps_ann",
         }
 
         snn_map = {
-            "snn_ft_reward": "post_conversion_ft/train_reward",
-            "snn_ft_energy": "post_conversion_ft/energy/inference",
+            "snn_ft_reward":  "post_conversion_ft/train_reward",
+            "snn_ft_energy":  "energy/eval_update",
             "snn_ft_latency": "post_conversion_ft/train_latency",
-            "snn_timesteps": "total_timesteps_snn"
-        }
-        
-        zs_map = {
-            "zs_reward": "post_conversion/zero_shot_reward",
-            "zs_energy": "post_conversion/inference_energy",
-            "zs_latency": "post_conversion/mean_latency",
+            "snn_timesteps":  "total_timesteps_snn",
         }
 
-        # Helper: Fetch Phase DataFrame
+        zs_map = {
+            "zs_reward":   "post_conversion/zero_shot_reward",
+            "zs_energy":   "post_conversion/zs_energy",
+            "zs_latency":  "post_conversion/mean_latency",
+            "zs_success":  "post_conversion/zero_shot_success_rate",
+        }
+
         def _fetch_phase_df(mapping):
             data = {}
             for col, key in mapping.items():
                 if key in self.history:
-                    values = [e.value for e in self.history[key]]
-                    data[col] = values
-            
+                    data[col] = [e.value for e in self.history[key]]
             if not data:
                 return pd.DataFrame()
             return pd.DataFrame({k: pd.Series(v) for k, v in data.items()})
 
-        # Create Phase DFs
         df_ann = _fetch_phase_df(ann_map)
         df_snn = _fetch_phase_df(snn_map)
-        df_zs = _fetch_phase_df(zs_map)
+        df_zs  = _fetch_phase_df(zs_map)
 
-        # Handle Eval (Global)
-        eval_events = self.history.get("eval/reward", [])
+        # Prefer trainer-side rolling_reward over record_episode output for test_reward
+        eval_key = (
+            "eval/rolling_reward"
+            if "eval/rolling_reward" in self.history
+            else "eval/current_reward"
+        )
+        eval_events = self.history.get(eval_key, [])
         if eval_events:
             df_eval = pd.DataFrame({
-                "test_reward": [e.value for e in eval_events], 
-                "eval_step": [e.step for e in eval_events]
+                "test_reward": [e.value for e in eval_events],
+                "eval_step":   [e.step  for e in eval_events],
             })
         else:
             df_eval = pd.DataFrame()
 
-        # Merge Side-by-Side
         dfs_to_concat = [d for d in [df_ann, df_snn, df_zs, df_eval] if not d.empty]
-        
+
         if not dfs_to_concat:
             return
 
@@ -298,17 +298,11 @@ class PPOLogger:
         df_final.index.name = "relative_update"
         df_final.reset_index(inplace=True)
 
-        # Atomic Save
         target_csv = self.log_dir / "per_episode_metrics.csv"
-        temp_csv = self.log_dir / "per_episode_metrics.tmp"
-        
+        temp_csv   = self.log_dir / "per_episode_metrics.tmp"
+
         try:
             df_final.to_csv(temp_csv, index=False)
             shutil.move(str(temp_csv), str(target_csv))
         except Exception as e:
             print(f"Warning: Failed to save aligned metrics: {e}")
-
-
-
-
-

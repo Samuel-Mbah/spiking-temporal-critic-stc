@@ -2162,11 +2162,11 @@ def plot_snn_phase(log_dir, save_dir=None, exp_name="ann2snn_both", env_name="Ca
     keys = {
         'ann_reward': 'train/rollout_reward',  
         'zs_reward': 'post_conversion/zero_shot_reward',
-        'zs_energy': 'post_conversion/inference_energy',
+        'zs_energy': 'post_conversion/zs_energy',
         'zs_latency': 'post_conversion/mean_latency',
         'ft_train_reward': 'post_conversion_ft/train_reward',
-        'ft_eval_reward': 'post_conversion_ft/eval_reward',
-        'ft_energy': 'post_conversion_ft/energy/inference',
+        'ft_eval_reward': 'post_conversion_ft/current_reward',
+        'ft_energy': 'post_conversion_ft/energy/eval_update',
         'ft_latency': 'post_conversion_ft/train_latency',
         'time': 'time/total_timesteps_snn'
     }
@@ -2656,7 +2656,7 @@ def plot_timing_critic_macro_dynamics(
     combined_df: Union[pd.DataFrame, Sequence[pd.DataFrame]],
     save_path: str,
     config: Optional[Dict] = None,
-    tau_col: str = "eval/mean_tau",
+    tau_col: str = "eval/critic_tau_mean",
     val_col: str = "eval/mean_value",
     window: int = 10,
     title_prefix: str = "Timing Critic",
