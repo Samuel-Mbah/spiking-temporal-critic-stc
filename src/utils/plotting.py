@@ -7,6 +7,8 @@ Generates publication-ready plots for training dynamics, energy efficiency, and 
 from __future__ import annotations
 
 import os
+import json
+import logging
 import warnings
 import numpy as np
 import pandas as pd
@@ -21,6 +23,8 @@ from sklearn.metrics import mean_squared_error, r2_score
 from scipy.stats import linregress
 
 from src.utils.metrics import calculate_cumulative_steps
+
+logger = logging.getLogger(__name__)
 
 # --- Style Configuration ---
 plt.style.use("default")
@@ -541,19 +545,6 @@ def plot_eval_return_vs_steps(
     Enhanced single-seed plot for Evaluation Performance.
     Shows sparse evaluation returns, peak performance annotation, and optionally eval episode length.
     """
-    def _as_numeric_1d(values) -> np.ndarray:
-        # Guard against duplicate-column selection returning DataFrame.
-        if isinstance(values, pd.DataFrame):
-            if values.shape[1] == 0:
-                return np.array([], dtype=float)
-            values = values.iloc[:, 0]
-        arr = np.asarray(values)
-        if arr.ndim == 0:
-            arr = arr.reshape(1)
-        elif arr.ndim > 1:
-            arr = arr[:, 0]
-        return pd.to_numeric(pd.Series(arr).reset_index(drop=True), errors="coerce").to_numpy(dtype=float)
-
     if isinstance(df, Sequence) and not isinstance(df, pd.DataFrame):
         seeds = [d for d in df if isinstance(d, pd.DataFrame) and not d.empty]
         if not seeds:
@@ -894,7 +885,6 @@ def plot_success_rate_vs_steps(
         raw_path = os.path.join(log_dir, "metrics_raw.json")
         if os.path.exists(raw_path):
             try:
-                import json
                 with open(raw_path, "r") as f:
                     raw = json.load(f)
                 events = raw.get("eval/success_rate", [])
@@ -1667,7 +1657,7 @@ def plot_actor_readout_validation(
 
     ax.set_xlabel("Internal Timestep ($\\tau$)", fontsize=12, fontweight="bold")
     ax.set_ylabel("Potential / Logits", fontsize=12, fontweight="bold")
-    _set_titles(ax, "Validation: Output Readout Dynamics (Membrane Potential vs. Spikes)")
+    _set_titles(ax, title, subtitle=f"Experiment: {exp_name}")
     ax.legend(loc="upper right", frameon=True)
     ax.grid(True, linestyle=":", alpha=0.5)
 

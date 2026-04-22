@@ -581,5 +581,6 @@ def run_baseline(config: Dict[str, Any]) -> Dict[str, Any]:
         "logger":          logger,
         "train_rewards":   train_rewards,
         "test_rewards":    test_rewards,
+        "episode_lengths": list(validation_data.get("episode_metrics", {}).get("lengths", [])),
         "validation_data": validation_data,
     }

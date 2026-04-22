@@ -22,7 +22,6 @@ from src.training.conversion_trainer import run_conversion
 from src.utils.report import create_training_dashboard
 from src.utils.metrics import calculate_and_save_metrics_csv
 from src.training.envs import set_global_seeds
-from src.utils.plotting import plot_snn_phase
 
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 logger = logging.getLogger(__name__)
@@ -133,13 +132,6 @@ def main():
     
     if os.path.exists(config.get('plots_dir', '')):
         try:
-            # plot_snn_phase expects a log directory path (or dict with log_dir).
-            plot_snn_phase(
-                config['log_dir'],
-                config['plots_dir'],
-                exp_name="ann2snn_actor",
-                env_name=env_name,
-            )
             val_data = result.get("validation_data") or {}
             if result.get("comparison_metrics"):
                 val_data["comparison_metrics"] = result["comparison_metrics"]

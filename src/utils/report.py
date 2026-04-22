@@ -37,6 +37,7 @@ from src.utils.plotting import (
     plot_timing_critic_dynamics,
     plot_timing_critic_macro_dynamics,
     plot_output_readout_validation,
+    plot_snn_phase,
 )
 
 # Configure module logger
@@ -642,7 +643,23 @@ ANN2SNN_ACTOR_CONVERSION_PLOTS: List[PlotSpec] = [
     ),
 ]
 
-ANN2SNN_BOTH_CONVERSION_PLOTS: List[PlotSpec] = ANN2SNN_ACTOR_CONVERSION_PLOTS
+ANN2SNN_BOTH_CONVERSION_PLOTS: List[PlotSpec] = ANN2SNN_ACTOR_CONVERSION_PLOTS + [
+    PlotSpec(
+        name="Latency vs Spikes (Critic)",
+        filename="plot_08b_latency_vs_spikes_critic.png",
+        plot_fn=plot_latency_vs_spikes,
+        condition=lambda df: _has_spike_activity(df)
+        and any(
+            c in df.columns
+            for c in (
+                "latency/critic_spike_timing_steps",
+                "latency/mean_ms",
+                "latency_mean_ms",
+            )
+        ),
+        kwargs_fn=lambda df: {"component": "Critic"},
+    ),
+]
 
 
 # =============================================================================
@@ -924,6 +941,14 @@ def create_training_dashboard(
             trimmed_list = [df for df in trimmed_list if not df.empty]
             if trimmed_list:
                 per_episode_data = trimmed_list
+
+    if dashboard_mode in {"ann2snn_actor_conversion", "ann2snn_both_conversion"}:
+        _exp_name = "ann2snn_both" if dashboard_mode == "ann2snn_both_conversion" else "ann2snn_actor"
+        _env_name = config.get("env", {}).get("id", "CartPole") if config else "CartPole"
+        try:
+            plot_snn_phase(str(log_paths[0]), str(out_path), exp_name=_exp_name, env_name=_env_name)
+        except Exception as e:
+            logger.warning(f"plot_snn_phase failed: {e}")
 
     if dashboard_mode == "ann2snn_actor_conversion":
         specs = ANN2SNN_ACTOR_CONVERSION_PLOTS
