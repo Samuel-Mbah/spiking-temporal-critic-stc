@@ -99,6 +99,8 @@ def run_surrogate(config: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     if env_cfg.get("vec_normalize", False):
+        agent.obs_rms = env_train.obs_rms
+        agent.returns_rms = env_train.returns_rms if hasattr(env_train, "returns_rms") else None
         env_train = VecNormalize(env_train, training=True,  norm_obs=True, norm_reward=True,  clip_reward=10.0)
         env_eval_wrapper = VecNormalize(env_eval, training=False, norm_obs=True, norm_reward=False, clip_reward=10.0)
         env_eval_wrapper.obs_rms = env_train.obs_rms

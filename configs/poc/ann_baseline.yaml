@@ -18,7 +18,7 @@ timing_log_interval: 100
 
 # EXPERIMENT META
 experiment_meta:
-  repeats: 1                   # Defer to shell script for seeding
+  repeats: 5
   base_seed: 42
   per_repeat_tag: "research"
 
@@ -55,13 +55,13 @@ ppo:
   lr: 0.001
   gamma: 0.99
   lam: 0.95
-  clip_eps: 0.1
+  clip_eps: 0.2
   clip_range_vf: 0.2
   entropy_coef: 0.0
   value_coef: 0.5
   max_grad_norm: 0.5
   target_kl: 0.015
-  print_interval_updates: 10
+  print_interval_updates: 20
   eval_interval_updates: 20     # Eval less frequently for speed
   eval_episodes: 20             # Higher sample size for reliable stats
   solved_window_eval_episodes: 100

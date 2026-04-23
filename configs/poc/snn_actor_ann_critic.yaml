@@ -15,7 +15,7 @@ instrument_timing: true
 timing_log_interval: 100
 
 experiment_meta:
-  repeats: 1                   # Defer to shell script
+  repeats: 5
   base_seed: 42
   per_repeat_tag: "research"
 
@@ -32,6 +32,7 @@ env:
 logging:
   checkpoint_interval_updates: 100
   save_last_checkpoint: true
+  logger_collect_spikes: true
   activations_probe_interval: 100
   latency_probe_interval: 100
 
@@ -48,7 +49,7 @@ ppo:
   lr: 0.001
   gamma: 0.99
   lam: 0.95
-  clip_eps: 0.1
+  clip_eps: 0.2
   clip_range_vf: 0.2
   entropy_coef: 0.01
   value_coef: 0.5
@@ -57,6 +58,8 @@ ppo:
   eval_interval_updates: 20
   eval_episodes: 20
   solved_window_eval_episodes: 100
+  eval_seed: 42
+  print_interval_updates: 20
   reward_threshold: 475.0
   success_rate_threshold: 95.0
   scale_returns_to_value: false
@@ -87,6 +90,10 @@ benchmark:
   energy_runs_per_measure: 5
   run_for_ann: false
   num_episodes_for_benchmark: 50
+
+seed_control:
+  deterministic_torch: true
+  cudnn_benchmark: false
 
 reporting:
   save_plots: true

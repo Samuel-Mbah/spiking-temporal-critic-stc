@@ -6,12 +6,10 @@ import torch
 import torch.nn.functional as F
 import torch.distributions as D
 import numpy as np
-from typing import Tuple, Dict
+from typing import Tuple, Dict, Optional, Any
 
-# ----------------- Merged Helper Functions ----------------- #
 
 def agent_forward(agent, obs: torch.Tensor):
-    """Modular agent forward with automatic squeezing of value."""
     out = agent(obs)
     if isinstance(out, (tuple, list)):
         logits = out[0]
@@ -26,12 +24,11 @@ def agent_forward(agent, obs: torch.Tensor):
     return logits, value.squeeze(-1)
 
 def apply_sticky_action(action, prev_action, actor, enabled, step):
-    """Vectorized sticky action logic for SNNs."""
     if not enabled or step == 0 or not hasattr(actor, "last_spike_count"):
         return action
     try:
         sc = actor.last_spike_count()
-        if torch.is_tensor(sc):
+        if torch.is_tensor(sc) and sc.ndim == 1 and sc.numel() == action.numel():
             # If spikes are 0, use the action from the previous timestep
             zero_spike = (sc == 0)
             action[zero_spike] = prev_action[zero_spike]
@@ -40,7 +37,7 @@ def apply_sticky_action(action, prev_action, actor, enabled, step):
     return action
 
 def compute_gae(rewards, values, dones, last_value, gamma, lam):
-    """Vectorized GAE computation."""
+    """Compute Generalized Advantage Estimation over T timesteps."""
     T = rewards.size(0)
     advantages = torch.zeros_like(rewards)
     gae = torch.zeros_like(last_value)
@@ -53,7 +50,6 @@ def compute_gae(rewards, values, dones, last_value, gamma, lam):
     returns = advantages + values
     return advantages, returns
 
-# ----------------- Main Merged Rollout Function ----------------- #
 
 @torch.no_grad()
 def collect_rollout(
@@ -64,13 +60,13 @@ def collect_rollout(
     gamma: float = 0.99,
     lam: float = 0.95,
     sticky_action: bool = False,
-    no_action_cfg: Dict = None,
+    no_action_cfg: Optional[Dict[str, Any]] = None,
 ) -> Tuple:
     device = next(agent.parameters()).device
     n_envs = env.num_envs
-    agent.train() # SNNs might need train mode for membrane potential tracking
-    
-    # Pre-allocate Buffers (Optimization from snippet 2)
+    agent.train()  # SNNs need train mode so their internal states persist across steps.
+
+    # Pre-allocate rollout buffers for performance (avoid repeated reallocations).
     obs_buf = torch.zeros((n_steps, n_envs) + env.single_observation_space.shape, device=device)
     act_buf = torch.zeros((n_steps, n_envs), dtype=torch.long, device=device)
     logp_buf = torch.zeros((n_steps, n_envs), device=device)
@@ -78,13 +74,14 @@ def collect_rollout(
     done_buf = torch.zeros((n_steps, n_envs), device=device)
     val_buf = torch.zeros((n_steps, n_envs), device=device)
 
-    # State Tracking
+    # Initial observation / state tracking for sticky actions.
     obs, _ = env.reset() if not hasattr(env, "_last_obs") else (env._last_obs, {})
     obs_t = torch.as_tensor(obs, dtype=torch.float32, device=device)
     prev_action = torch.zeros(n_envs, dtype=torch.long, device=device)
+    next_obs = obs  # ensure defined before entering the loop for type checkers
     
     # Reward Tracking (Robust logic from snippet 1)
-    raw_ep_rewards = []
+    raw_ep_rewards = []  # keep episode returns independent of reward shaping.
     done_count = 0
     episode_returns = np.zeros(n_envs, dtype=np.float32)
     raw_episode_returns = np.zeros(n_envs, dtype=np.float32)
@@ -97,7 +94,7 @@ def collect_rollout(
         dist = D.Categorical(logits=logits)
         action = dist.sample()
         
-        # 2. SNN Sticky Logic
+        # 2. Sticky action logic keeps actions steady if the SNN emitted no spikes.
         action = apply_sticky_action(action, prev_action, agent.actor, sticky_action, t)
         logp = dist.log_prob(action)
 
@@ -115,7 +112,7 @@ def collect_rollout(
         done_buf[t] = torch.as_tensor(done, dtype=torch.float32, device=device)
         val_buf[t] = value
 
-        # 5. Robust Info Extraction (Handles Gymnasium VectorEnv structures)
+        # 5. Robust info extraction covers both Gymnasium VectorEnv formats.
         used_info = np.zeros(n_envs, dtype=bool)
         if "final_info" in infos:
             for i, info in enumerate(infos["final_info"]):
@@ -145,19 +142,20 @@ def collect_rollout(
         obs_t = torch.as_tensor(next_obs, dtype=torch.float32, device=device)
         prev_action = action
 
-    # Store for next rollout
+    # Persist the last observation so the next rollout can resume seamlessly.
     env._last_obs = next_obs
 
-    # 6. GAE Calculation
+    # 6. Compute GAE + returns for PPO loss.
     _, last_val = agent_forward(agent, obs_t)
     advantages, returns = compute_gae(rew_buf, val_buf, done_buf, last_val, gamma, lam)
 
-    # 7. Flatten and Normalize
+    # 7. Flatten and normalize tensors so they can be batched by PPO.
     def flat(x): return x.flatten(0, 1)
 
     b_adv = flat(advantages)
     b_adv = (b_adv - b_adv.mean()) / (b_adv.std() + 1e-8)
 
+    # Provide summary stats for env wrappers that report raw episodic returns.
     raw_mean = np.mean(raw_ep_rewards) if raw_ep_rewards else np.nan
 
     return (

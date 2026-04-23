@@ -13,7 +13,7 @@ import logging
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Any, Sequence, Union
+from typing import Callable, Dict, List, Optional, Any, Sequence, Union, Tuple
 
 import numpy as np
 import pandas as pd
@@ -95,45 +95,47 @@ def _hydrate_alias_columns(per_episode: pd.DataFrame, log_dir: Path) -> pd.DataF
         except Exception:
             logger.warning("Failed to read metrics_raw.json for alias hydration.")
 
+    def _try_align(events: pd.DataFrame, align_col: str, df_col: str) -> Optional[pd.Series]:
+        """Try to align event values by matching a column."""
+        if align_col not in events.columns or not events[align_col].notna().any():
+            return None
+        if df_col not in df.columns:
+            return None
+
+        mapping = (
+            events.dropna(subset=[align_col, "value"])
+            .drop_duplicates(subset=[align_col], keep="last")
+            .set_index(align_col)["value"]
+            .to_dict()
+        )
+        series = pd.to_numeric(df[df_col], errors="coerce")
+        return series.map(mapping)
+
     def fill_from_key(target_col: str, key: str):
         events = _extract_numeric_events(raw, key)
         if events.empty:
             return
 
         existing = df[target_col] if target_col in df.columns else pd.Series(np.nan, index=df.index)
-
         filled = existing.copy()
-        # Strategy 1: direct length alignment.
+
+        # Strategy 1: direct length alignment
         if len(events) == len(df):
             vals = events["value"].reset_index(drop=True)
             filled = filled.reset_index(drop=True).where(~filled.reset_index(drop=True).isna(), vals)
             filled.index = df.index
-        # Strategy 2: align by update/iteration.
-        elif "update" in df.columns and events["iteration"].notna().any():
-            mapping = (
-                events.dropna(subset=["iteration", "value"])
-                .drop_duplicates(subset=["iteration"], keep="last")
-                .set_index("iteration")["value"]
-                .to_dict()
-            )
-            u = pd.to_numeric(df["update"], errors="coerce")
-            mapped = u.map(mapping)
-            filled = filled.where(~filled.isna(), mapped)
-        # Strategy 3: align by total_timesteps/step.
-        elif "total_timesteps" in df.columns and events["step"].notna().any():
-            mapping = (
-                events.dropna(subset=["step", "value"])
-                .drop_duplicates(subset=["step"], keep="last")
-                .set_index("step")["value"]
-                .to_dict()
-            )
-            s = pd.to_numeric(df["total_timesteps"], errors="coerce")
-            mapped = s.map(mapping)
-            filled = filled.where(~filled.isna(), mapped)
-
-        if target_col in df.columns:
-            df[target_col] = filled
         else:
+            # Strategy 2: align by update/iteration
+            aligned = _try_align(events, "iteration", "update")
+            if aligned is not None:
+                filled = filled.where(~filled.isna(), aligned)
+            else:
+                # Strategy 3: align by total_timesteps/step
+                aligned = _try_align(events, "step", "total_timesteps")
+                if aligned is not None:
+                    filled = filled.where(~filled.isna(), aligned)
+
+        if target_col in df.columns or not filled.isna().any():
             df[target_col] = filled
 
     aliases = {

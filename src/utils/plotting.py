@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import torch
+from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.ticker import FuncFormatter
 from typing import Optional, Tuple, Dict, Union, Iterable, List, Sequence
@@ -22,11 +23,11 @@ from sklearn.metrics import mean_squared_error, r2_score
 
 from scipy.stats import linregress
 
-from src.utils.metrics import calculate_cumulative_steps
+from src.utils.metrics import calculate_cumulative_steps, compute_updates_to_solve
 
 logger = logging.getLogger(__name__)
 
-# --- Style Configuration ---
+# Matplotlib Configuration
 plt.style.use("default")
 plt.rcParams.update({
     "figure.figsize": (10, 6),
@@ -37,18 +38,14 @@ plt.rcParams.update({
     "legend.fontsize": 12,
     "xtick.labelsize": 12,
     "ytick.labelsize": 12,
-    "font.family": "serif",  # Professional look
+    "font.family": "serif",
 })
-
-# ---------------------------------------------------------------------
-# Internal Helpers
-# ---------------------------------------------------------------------
 
 def _ensure_numpy(x: Union[torch.Tensor, np.ndarray, pd.Series, list]) -> np.ndarray:
     if isinstance(x, torch.Tensor):
         return x.detach().cpu().numpy()
     if isinstance(x, pd.Series):
-        return x.values
+        return x.to_numpy()
     return np.asarray(x)
 
 def _rolling_mean(x: np.ndarray, window: int) -> Tuple[np.ndarray, np.ndarray, int]:
@@ -77,7 +74,7 @@ def _get_steps(df: pd.DataFrame, prefer_cols: Iterable[str]) -> np.ndarray:
     except Exception:
         return np.arange(len(df))
 
-def _format_steps_axis(ax: plt.Axes):
+def _format_steps_axis(ax: Axes):
     """Formats x-axis with M (millions) or K (thousands) suffix."""
     def human_format(num, pos):
         magnitude = 0
@@ -105,7 +102,7 @@ def _xlabel_from_cols(dfs: List[pd.DataFrame], prefer_cols: Iterable[str]) -> st
         return "Cumulative Steps"
     return "Cumulative Steps"
 
-def _set_titles(ax: plt.Axes, title: str, subtitle: Optional[str] = None):
+def _set_titles(ax: Axes, title: str, subtitle: Optional[str] = None):
     def _latex_safe_text(s: Optional[str]) -> Optional[str]:
         if s is None:
             return None
@@ -114,7 +111,7 @@ def _set_titles(ax: plt.Axes, title: str, subtitle: Optional[str] = None):
             return s.replace("&", r"\&").replace("%", r"\%")
         return s
 
-    safe_title = _latex_safe_text(title)
+    safe_title = _latex_safe_text(title) or title
     safe_subtitle = _latex_safe_text(subtitle)
 
     ax.set_title(safe_title, fontsize=16, fontweight="bold", pad=18)
@@ -259,7 +256,7 @@ def _resolve_spike_activity(df: pd.DataFrame, candidate_cols: List[str]) -> Tupl
     return spikes, x_col
 
 
-def _safe_legend(ax: plt.Axes, *args, **kwargs):
+def _safe_legend(ax: Axes, *args, **kwargs):
     handles, labels = ax.get_legend_handles_labels()
     visible = [(h, l) for h, l in zip(handles, labels) if l and not l.startswith("_")]
     if not visible:
@@ -631,7 +628,7 @@ def plot_eval_return_vs_steps(
     steps_arr = steps_arr[:n_points]
     df_valid = df_valid.iloc[:n_points].copy()
     finite_mask = np.isfinite(eval_reward_arr) & np.isfinite(steps_arr)
-    df_valid = df_valid.iloc[finite_mask].copy()
+    df_valid = df_valid[finite_mask].copy()
     if df_valid.empty:
         _placeholder_plot("No valid evaluation points", save_path)
         return
@@ -706,11 +703,11 @@ def plot_eval_return_vs_steps(
     if ep_len_col:
         raw_eval_ep_len = _as_numeric_1d(df_valid[ep_len_col])
         n_ep = min(len(raw_eval_ep_len), len(steps))
+        step_ep = steps[:n_ep]
         if n_ep == 0:
             raw_eval_ep_len = np.array([], dtype=float)
         else:
             raw_eval_ep_len = raw_eval_ep_len[:n_ep]
-            step_ep = steps[:n_ep]
         finite_ep = np.isfinite(raw_eval_ep_len)
         if np.any(finite_ep):
             ax2 = ax1.twinx()
@@ -1020,7 +1017,7 @@ def plot_energy_vs_steps(
                 df_local[metric_col] = pd.to_numeric(df_local[inference_col], errors="coerce") / denom
             else:
                 ep_len_col = "episode_length_steps" if "episode_length_steps" in df_local.columns else ("episode_length" if "episode_length" in df_local.columns else None)
-                if ep_len_col in df_local.columns:
+                if ep_len_col is not None:
                     denom = pd.to_numeric(df_local[ep_len_col], errors="coerce").replace(0, np.nan)
                     df_local[metric_col] = pd.to_numeric(df_local[inference_col], errors="coerce") / denom
                 else:
@@ -1076,9 +1073,9 @@ def plot_energy_vs_steps(
     color_eff = _experiment_color(exp_name)
 
     # 2. Plot Efficiency (Left Axis)
+    cum_rows: List[pd.DataFrame] = []
     if multi_seed:
         eff_rows = []
-        cum_rows = []
         for sid, s in enumerate(prepared):
             eff_raw = pd.to_numeric(s["eff"], errors="coerce")
             smooth, _, _ = _rolling_mean(eff_raw.to_numpy(), window)
@@ -1223,9 +1220,11 @@ def plot_spikes_vs_steps(
         if "eval/spikes_per_step" in seed_df.columns:
             eval_rate = pd.to_numeric(seed_df["eval/spikes_per_step"], errors="coerce")
         elif "eval/spikes_actor_per_step" in seed_df.columns or "eval/spikes_critic_per_step" in seed_df.columns:
-            actor_eval = pd.to_numeric(seed_df.get("eval/spikes_actor_per_step", 0.0), errors="coerce")
-            critic_eval = pd.to_numeric(seed_df.get("eval/spikes_critic_per_step", 0.0), errors="coerce")
-            eval_rate = actor_eval.fillna(0.0) + critic_eval.fillna(0.0)
+            _actor_s = seed_df["eval/spikes_actor_per_step"] if "eval/spikes_actor_per_step" in seed_df.columns else pd.Series(np.nan, index=seed_df.index)
+            _critic_s = seed_df["eval/spikes_critic_per_step"] if "eval/spikes_critic_per_step" in seed_df.columns else pd.Series(np.nan, index=seed_df.index)
+            actor_eval = pd.to_numeric(_actor_s, errors="coerce").fillna(0.0)
+            critic_eval = pd.to_numeric(_critic_s, errors="coerce").fillna(0.0)
+            eval_rate = actor_eval + critic_eval
         elif "eval/spikes" in seed_df.columns and "eval_episode_length" in seed_df.columns:
             denom = pd.to_numeric(seed_df["eval_episode_length"], errors="coerce").replace(0, np.nan)
             eval_rate = pd.to_numeric(seed_df["eval/spikes"], errors="coerce") / denom
@@ -1315,7 +1314,7 @@ def plot_spikes_vs_steps(
                 sig = max(sig, float(np.nanmax(np.abs(y))))
         return sig
 
-    def _plot_component(ax: plt.Axes, key: str):
+    def _plot_component(ax: Axes, key: str):
         rows = []
         for sid, s in enumerate(per_seed[key]):
             x = pd.to_numeric(s["step"], errors="coerce")
@@ -1622,7 +1621,7 @@ def plot_actor_readout_validation(
     output_potentials: np.ndarray, # Shape: [num_actions, tau]
     output_spikes: np.ndarray,     # Shape: [num_actions, tau]
     save_path: str,
-    action_names: List[str] = None,
+    action_names: Optional[List[str]] = None,
     threshold: float = 1.0,
     exp_name: str = "ann2snn_actor",
     title: str = "Actor Output Neuron Dynamics",
@@ -1842,25 +1841,23 @@ def plot_energy_vs_spikes(
     
     # 4. Regression Line (requires non-constant x)
     seed_slopes = []
-    if can_fit:
-        slope, intercept, r_val, _, _ = linregress(x, y)
-        x_range = np.array([x.min(), x.max()])
-        ax.plot(x_range, intercept + slope * x_range, 'r--', lw=2, label=f"Linear Fit ($R^2={r_val**2:.3f}$)")
-        for sid, grp in data.groupby("seed"):
-            gx, gy = grp["x"].to_numpy(), grp["y"].to_numpy()
-            if gx.size >= 2 and np.ptp(gx) > 0:
-                try:
-                    seed_slopes.append(float(linregress(gx, gy).slope))
-                except Exception:
-                    pass
-        # Slope is J/spike, intercept is static overhead J
-        stats_text = (f"Cost/Spike: {slope*1000:.2f} mJ\n"
-                      f"Static Overhead: {intercept*1000:.2f} mJ\n"
-                      f"Pearson R: {r_val:.3f}")
-        if len(seed_slopes) > 1:
-            stats_text += f"\nSeed slope μ±σ: {np.mean(seed_slopes)*1000:.2f}±{np.std(seed_slopes)*1000:.2f} mJ/spike"
-    else:
-        stats_text = "Regression skipped:\nspike activity is constant."
+    _lr = linregress(x, y)
+    slope, intercept, r_val = float(_lr[0]), float(_lr[1]), float(_lr[2])
+    x_range = np.array([x.min(), x.max()])
+    ax.plot(x_range, intercept + slope * x_range, 'r--', lw=2, label=f"Linear Fit ($R^2={r_val**2:.3f}$)")
+    for sid, grp in data.groupby("seed"):
+        gx, gy = grp["x"].to_numpy(), grp["y"].to_numpy()
+        if gx.size >= 2 and np.ptp(gx) > 0:
+            try:
+                seed_slopes.append(float(linregress(gx, gy)[0]))
+            except Exception:
+                pass
+    # Slope is J/spike, intercept is static overhead J
+    stats_text = (f"Cost/Spike: {slope*1000:.2f} mJ\n"
+                  f"Static Overhead: {intercept*1000:.2f} mJ\n"
+                  f"Pearson R: {r_val:.3f}")
+    if len(seed_slopes) > 1:
+        stats_text += f"\nSeed slope μ±σ: {np.mean(seed_slopes)*1000:.2f}±{np.std(seed_slopes)*1000:.2f} mJ/spike"
     
     ax.text(0.05, 0.95, stats_text, transform=ax.transAxes, fontsize=11, fontweight='bold',
             verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor='gray'))
@@ -1964,7 +1961,7 @@ def plot_reward_vs_spikes(
         gx, gy = grp["x"].to_numpy(), grp["y"].to_numpy()
         if gx.size >= 2 and np.ptp(gx) > 0:
             try:
-                seed_slopes.append(float(linregress(gx, gy).slope))
+                seed_slopes.append(float(linregress(gx, gy)[0]))
             except Exception:
                 pass
 
@@ -2045,6 +2042,7 @@ def plot_latency_vs_spikes(
 
     rows = []
     y_col_selected = None
+    color_map = 'Reds' if component.lower() == "actor" else 'Oranges'
     for sid, seed_df in enumerate(seeds):
         if component.lower() == "actor":
             spikes_series, _ = _resolve_spike_activity(
@@ -2092,14 +2090,15 @@ def plot_latency_vs_spikes(
     # 4. Correlation Line (requires non-constant x)
     seed_slopes = []
     if can_fit:
-        slope, intercept, r_val, _, _ = linregress(x, y)
+        _lr = linregress(x, y)
+        slope, intercept, r_val = float(_lr[0]), float(_lr[1]), float(_lr[2])
         x_range = np.array([x.min(), x.max()])
         ax.plot(x_range, intercept + slope * x_range, 'k--', lw=2, label=f"{component} Trend ($R^2={r_val**2:.3f}$)")
         for sid, grp in data.groupby("seed"):
             gx, gy = grp["x"].to_numpy(), grp["y"].to_numpy()
             if gx.size >= 2 and np.ptp(gx) > 0:
                 try:
-                    seed_slopes.append(float(linregress(gx, gy).slope))
+                    seed_slopes.append(float(linregress(gx, gy)[0]))
                 except Exception:
                     pass
         stats_text = (f"{component} Reactivity: {slope:.2f} {y_unit}/spike\n"
@@ -2135,6 +2134,9 @@ def plot_snn_phase(log_dir, save_dir=None, exp_name="ann2snn_both", env_name="Ca
     # 1. Directory Setup
     if isinstance(log_dir, dict):
         log_dir = log_dir.get("log_dir")
+    if log_dir is None:
+        print("[Plotting] Error: log_dir is None.")
+        return
     log_dir = os.fspath(log_dir)
     save_dir = save_dir or os.path.join(log_dir, "plots")
     os.makedirs(save_dir, exist_ok=True)
@@ -2260,11 +2262,12 @@ def plot_snn_phase(log_dir, save_dir=None, exp_name="ann2snn_both", env_name="Ca
         ax.xaxis.set_major_formatter(FuncFormatter(x_formatter))
         ax.grid(True, linestyle=':', alpha=0.6)
 
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.tight_layout(rect=(0, 0.03, 1, 0.95))
     save_path = os.path.join(save_dir, "snn_recovery_dynamics.png")
-    plt.savefig(save_path, dpi=300)
-    plt.close()
-    print(f"[Plotting] ✅ SNN Phase visual saved to {save_path}")
+    os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
+    fig.savefig(save_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    print(f"[Plotting] SNN Phase visual saved to {save_path}")
     
     
 # ------------------------------------------------------------------------- intra episode values (plot of actual critic values on average in an episode) -------------------------------------------------------------------------
@@ -2283,6 +2286,9 @@ def plot_intra_episode_values(
     """
     multi_seed = False
     seed_arrays: List[np.ndarray] = []
+    values_mean: np.ndarray = np.array([])
+    values_lo: np.ndarray = np.array([])
+    values_hi: np.ndarray = np.array([])
     if isinstance(values, (list, tuple)) and len(values) > 0:
         first = values[0]
         if isinstance(first, (list, tuple, np.ndarray, pd.Series, torch.Tensor)):
@@ -2543,7 +2549,6 @@ def plot_timing_critic_dynamics(
             f"{title} - {env_name}",
             subtitle="Multi-seed micro dynamics (aligned actor steps, mean ±95% CI)",
         )
-        plt.tight_layout()
         _savefig(fig, save_path)
         return
 
@@ -2743,5 +2748,554 @@ def plot_timing_critic_macro_dynamics(
     # Format X-axis
     _format_steps_axis(axs[1])
 
-    plt.tight_layout()
+    _savefig(fig, save_path)
+
+# ------------------------------------------------------------------------- energy efficiency comparison (bar chart) ----------------------------------------------------------------------------------------------------------------------------------------
+def plot_energy_efficiency_comparison(
+    ann_metrics: Union[Dict, List[Dict]],
+    snn_metrics: Union[Dict, List[Dict]],
+    save_path: str,
+    env_name: str = "Unknown Env",
+    ann_label: str = "ANN Baseline",
+    snn_label: str = "SNN",
+    title: str = "Energy Efficiency: ANN vs SNN",
+    e_ac_pj: float = 0.9,
+    e_mac_pj: float = 4.6,
+) -> None:
+    """Publication-ready 3-panel bar chart comparing ANN vs SNN energy efficiency.
+
+    Panel 1 — GPU Energy (empirical, wall-clock J/env-step). Honest: GPU does NOT
+    exploit spike sparsity, so ANN ≈ SNN here is expected and correct.
+    Panel 2 — Theoretical SOP energy (µJ). Neuromorphic-hardware claim: SNN uses
+    AC ops (0.9 pJ) vs ANN MAC ops (4.6 pJ), yielding large speedup at inference.
+    Panel 3 — Spike sparsity (% of time steps where a neuron fires).
+
+    Args:
+        ann_metrics: Single dict or list of dicts (one per seed) from
+            ``dataclasses.asdict(BenchmarkMetrics)`` for the ANN model.
+        snn_metrics: Same structure for the SNN model.
+        save_path:  Output file path (PNG).
+        env_name:   Environment name shown in the figure suptitle.
+        ann_label:  Legend / bar label for the ANN model.
+        snn_label:  Legend / bar label for the SNN model.
+        title:      Main figure title.
+        e_ac_pj:    Energy per accumulate op in pJ (Horowitz 2014 default: 0.9).
+        e_mac_pj:   Energy per multiply-accumulate op in pJ (default: 4.6).
+    """
+    ANN_COLOR = "#7f8c8d"  # gray
+    SNN_COLOR = "#2980b9"  # blue
+
+    # ------------------------------------------------------------------
+    # Normalise inputs to lists of dicts
+    # ------------------------------------------------------------------
+    def _to_list(m: Union[Dict, List[Dict]]) -> List[Dict]:
+        return m if isinstance(m, list) else [m]
+
+    ann_list = _to_list(ann_metrics)
+    snn_list = _to_list(snn_metrics)
+
+    # ------------------------------------------------------------------
+    # Extract scalar fields; return (mean, std) tuple
+    # ------------------------------------------------------------------
+    def _stat(dicts: List[Dict], *keys: str) -> Tuple[float, float]:
+        """Drill into nested dict via keys and return (mean, std) across seeds."""
+        vals = []
+        for d in dicts:
+            node = d
+            for k in keys:
+                if node is None:
+                    break
+                node = node.get(k) if isinstance(node, dict) else None
+            if node is not None:
+                try:
+                    vals.append(float(node))
+                except (TypeError, ValueError):
+                    pass
+        if not vals:
+            return float("nan"), 0.0
+        return float(np.mean(vals)), float(np.std(vals))
+
+    gpu_ann_mean, gpu_ann_std = _stat(ann_list, "raw_joules_per_env_step")
+    gpu_snn_mean, gpu_snn_std = _stat(snn_list, "raw_joules_per_env_step")
+
+    # SOP — check whether sop data is available in all seeds
+    ann_sop_available = all(d.get("sop") is not None for d in ann_list)
+    snn_sop_available = all(d.get("sop") is not None for d in snn_list)
+    sop_ok = ann_sop_available and snn_sop_available
+
+    if sop_ok:
+        sop_ann_mean, sop_ann_std = _stat(ann_list, "sop", "ann_theoretical_pJ")
+        sop_snn_mean, sop_snn_std = _stat(snn_list, "sop", "snn_theoretical_pJ")
+        speedup_mean, _ = _stat(snn_list, "sop", "theoretical_speedup")
+        # Convert pJ → µJ for readability
+        sop_ann_mean /= 1e6
+        sop_ann_std /= 1e6
+        sop_snn_mean /= 1e6
+        sop_snn_std /= 1e6
+
+    sparsity_mean, sparsity_std = _stat(snn_list, "sparsity_factor")
+
+    # ------------------------------------------------------------------
+    # Build figure
+    # ------------------------------------------------------------------
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(14, 5))
+    fig.suptitle(f"{title} — {env_name}", fontsize=15, fontweight="bold", y=1.02)
+
+    x = np.array([0.0, 1.0])
+    bar_w = 0.5
+
+    # ---- Panel 1: GPU Energy (empirical) --------------------------------
+    gpu_means = [gpu_ann_mean, gpu_snn_mean]
+    gpu_stds  = [gpu_ann_std,  gpu_snn_std]
+    bars1 = ax1.bar(
+        x, gpu_means,
+        width=bar_w,
+        color=[ANN_COLOR, SNN_COLOR],
+        yerr=gpu_stds if any(s > 0 for s in gpu_stds) else None,
+        capsize=5,
+        edgecolor="black",
+        linewidth=0.8,
+        error_kw={"elinewidth": 1.5},
+    )
+    ax1.set_xticks(x)
+    ax1.set_xticklabels([ann_label, snn_label], fontsize=11)
+    ax1.set_ylabel("Joules / env step", fontweight="bold")
+    _set_titles(ax1, "GPU Energy (Empirical)")
+    ax1.text(
+        0.5, -0.22,
+        "⚠ GPU energy: sparsity not exploited",
+        transform=ax1.transAxes,
+        ha="center", fontsize=8, color="#c0392b", style="italic",
+    )
+    for bar, val in zip(bars1, gpu_means):
+        if not np.isnan(val):
+            ax1.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() * 1.02,
+                f"{val:.4f}",
+                ha="center", va="bottom", fontsize=9,
+            )
+
+    # ---- Panel 2: Theoretical SOP Energy --------------------------------
+    if sop_ok and not (np.isnan(sop_ann_mean) or np.isnan(sop_snn_mean)):
+        sop_means = [sop_ann_mean, sop_snn_mean]
+        sop_stds  = [sop_ann_std,  sop_snn_std]
+        bars2 = ax2.bar(
+            x, sop_means,
+            width=bar_w,
+            color=[ANN_COLOR, SNN_COLOR],
+            yerr=sop_stds if any(s > 0 for s in sop_stds) else None,
+            capsize=5,
+            edgecolor="black",
+            linewidth=0.8,
+            error_kw={"elinewidth": 1.5},
+        )
+        ax2.set_xticks(x)
+        ax2.set_xticklabels([ann_label, snn_label], fontsize=11)
+        ax2.set_ylabel("Theoretical Energy (µJ)", fontweight="bold")
+        _set_titles(ax2, "Theoretical SOP Energy")
+        snn_bar = bars2[1]
+        snn_h = snn_bar.get_height()
+        y_offset = max(sop_ann_mean, sop_snn_mean) * 0.05
+        if not np.isnan(speedup_mean) and speedup_mean > 0:
+            ax2.text(
+                snn_bar.get_x() + snn_bar.get_width() / 2,
+                snn_h + y_offset,
+                f"{speedup_mean:.1f}×\nspeedup",
+                ha="center", fontsize=11, fontweight="bold", color="darkblue",
+            )
+        ax2.text(
+            0.5, -0.22,
+            f"Horowitz (2014): E_AC={e_ac_pj} pJ, E_MAC={e_mac_pj} pJ",
+            transform=ax2.transAxes,
+            ha="center", fontsize=8, color="gray", style="italic",
+        )
+    else:
+        ax2.axis("off")
+        ax2.text(
+            0.5, 0.5,
+            "SOP data unavailable\n(run with ANN sop fix)",
+            ha="center", va="center", fontsize=11, color="gray",
+            transform=ax2.transAxes,
+        )
+
+    # ---- Panel 3: Spike Sparsity ----------------------------------------
+    if not np.isnan(sparsity_mean):
+        bar3 = ax3.bar(
+            [0.5], [sparsity_mean * 100],
+            width=bar_w,
+            color=SNN_COLOR,
+            yerr=[[sparsity_std * 100]] if sparsity_std > 0 else None,
+            capsize=5,
+            edgecolor="black",
+            linewidth=0.8,
+            error_kw={"elinewidth": 1.5},
+        )
+        ax3.axhline(100.0, color=ANN_COLOR, linestyle="--", linewidth=1.5,
+                    label=f"{ann_label} (dense, 100%)")
+        ax3.set_xlim(-0.2, 1.2)
+        ax3.set_ylim(0, 115)
+        ax3.set_xticks([0.5])
+        ax3.set_xticklabels([snn_label], fontsize=11)
+        ax3.set_ylabel("Mean Spike Rate (%)", fontweight="bold")
+        _set_titles(ax3, "Spike Sparsity")
+        ax3.legend(fontsize=9, loc="upper right")
+        ax3.text(
+            bar3[0].get_x() + bar3[0].get_width() / 2,
+            sparsity_mean * 100 + 3,
+            f"{sparsity_mean * 100:.1f}% sparse",
+            ha="center", fontsize=11, fontweight="bold", color=SNN_COLOR,
+        )
+    else:
+        ax3.axis("off")
+        ax3.text(
+            0.5, 0.5,
+            "Sparsity data unavailable",
+            ha="center", va="center", fontsize=11, color="gray",
+            transform=ax3.transAxes,
+        )
+
+    _savefig(fig, save_path)
+
+
+def plot_steps_to_solve_comparison(
+    ann_dfs: Union[pd.DataFrame, List[pd.DataFrame]],
+    snn_dfs: Union[pd.DataFrame, List[pd.DataFrame]],
+    save_path: str,
+    reward_threshold: float,
+    env_name: str = "Unknown Env",
+    ann_label: str = "ANN Baseline",
+    snn_label: str = "SNN",
+    title: str = "Sample Efficiency: Updates to First Solve",
+    reward_col: str = "test_reward",
+    steps_col: str = "total_timesteps",
+    update_col: str = "update",
+) -> None:
+    """Publication-ready 2-panel bar chart comparing sample efficiency (ANN vs SNN).
+
+    Panel 1 — Training updates to first solve.
+    Panel 2 — Environment steps to first solve.
+
+    Seeds that never reach ``reward_threshold`` are shown as hatched "DNF" bars
+    at the maximum observed value, clearly distinguished from solved seeds.
+    Per-seed values are overlaid as scatter points so reviewers can see variance.
+
+    Args:
+        ann_dfs: Single DataFrame or list (one per seed) from per_episode_metrics.csv.
+        snn_dfs: Same structure for the SNN model.
+        save_path: Output PNG path.
+        reward_threshold: Reward value that defines "solved" (e.g. 475 for CartPole).
+        env_name: Shown in suptitle.
+        ann_label / snn_label: Bar labels.
+        title: Figure title prefix.
+        reward_col: CSV column for rolling eval reward (default: ``test_reward``).
+        steps_col: CSV column for cumulative env steps (default: ``total_timesteps``).
+        update_col: CSV column for training update index (default: ``update``).
+    """
+    ANN_COLOR = "#7f8c8d"
+    SNN_COLOR = "#2980b9"
+
+    def _to_list(x):
+        return x if isinstance(x, list) else [x]
+
+    ann_list = [df for df in _to_list(ann_dfs) if isinstance(df, pd.DataFrame) and not df.empty]
+    snn_list = [df for df in _to_list(snn_dfs) if isinstance(df, pd.DataFrame) and not df.empty]
+
+    if not ann_list and not snn_list:
+        _placeholder_plot("No DataFrames provided to plot_steps_to_solve_comparison.", save_path)
+        return
+
+    def _solve_values(dfs: List[pd.DataFrame], key: str) -> np.ndarray:
+        out = []
+        for df in dfs:
+            result = compute_updates_to_solve(
+                df,
+                reward_threshold=reward_threshold,
+                reward_col=reward_col,
+                steps_col=steps_col,
+                update_col=update_col,
+            )
+            out.append(result[key] if result is not None and key in result else float("nan"))
+        return np.array(out, dtype=float)
+
+    ann_updates = _solve_values(ann_list, "update")
+    snn_updates = _solve_values(snn_list, "update")
+    ann_steps   = _solve_values(ann_list, "total_steps")
+    snn_steps   = _solve_values(snn_list, "total_steps")
+
+    has_steps = not (np.all(np.isnan(ann_steps)) and np.all(np.isnan(snn_steps)))
+    n_panels = 2 if has_steps else 1
+
+    def _draw_panel(ax: "Axes", ann_vals: np.ndarray, snn_vals: np.ndarray, ylabel: str, panel_title: str):
+        all_finite = np.concatenate([ann_vals[~np.isnan(ann_vals)], snn_vals[~np.isnan(snn_vals)]])
+        dnf_height = float(np.max(all_finite) * 1.1) if len(all_finite) > 0 else 1.0
+
+        def _stats(vals: np.ndarray) -> Tuple[float, float, bool]:
+            finite = vals[~np.isnan(vals)]
+            if finite.size == 0:
+                return dnf_height, 0.0, True
+            return float(np.mean(finite)), float(np.std(finite)) if finite.size > 1 else 0.0, False
+
+        ann_mean, ann_std, ann_dnf = _stats(ann_vals)
+        snn_mean, snn_std, snn_dnf = _stats(snn_vals)
+
+        x = np.array([0.0, 1.0])
+        bar_w = 0.5
+
+        for pos, mean, std, is_dnf, color in [
+            (x[0], ann_mean, ann_std, ann_dnf, ANN_COLOR),
+            (x[1], snn_mean, snn_std, snn_dnf, SNN_COLOR),
+        ]:
+            ax.bar(
+                [pos], [mean],
+                width=bar_w,
+                color=color,
+                alpha=0.45 if is_dnf else 1.0,
+                hatch="//" if is_dnf else "",
+                yerr=[[std]] if std > 0 else None,
+                capsize=5,
+                edgecolor="black",
+                linewidth=0.8,
+                error_kw={"elinewidth": 1.5},
+            )
+            label = "DNF" if is_dnf else f"{mean:.0f}"
+            ax.text(
+                pos, mean + dnf_height * 0.03,
+                label,
+                ha="center", va="bottom", fontsize=10, fontweight="bold",
+                color="#c0392b" if is_dnf else "black",
+            )
+
+        # Per-seed scatter + DNF markers
+        rng = np.random.default_rng(42)
+        any_dnf = False
+        for vals, pos in [(ann_vals, x[0]), (snn_vals, x[1])]:
+            finite = vals[~np.isnan(vals)]
+            if finite.size > 0:
+                j = rng.uniform(-0.08, 0.08, size=finite.size)
+                ax.scatter(pos + j, finite, color="black", s=30, zorder=5, alpha=0.7, linewidths=0)
+            n_dnf = int(np.isnan(vals).sum())
+            if n_dnf > 0:
+                any_dnf = True
+                ax.scatter(
+                    [pos] * n_dnf, [dnf_height * 0.97] * n_dnf,
+                    marker="x", color="#c0392b", s=60, zorder=6, linewidths=2,
+                )
+
+        ax.set_xticks(x)
+        ax.set_xticklabels([ann_label, snn_label], fontsize=11)
+        ax.set_ylabel(ylabel, fontweight="bold")
+        ax.set_ylim(0, dnf_height * 1.2)
+        _set_titles(ax, panel_title)
+        if any_dnf:
+            ax.scatter([], [], marker="x", color="#c0392b", s=60, linewidths=2, label="Did not solve")
+            ax.legend(fontsize=9, loc="upper right")
+
+    fig, axes = plt.subplots(1, n_panels, figsize=(7 * n_panels, 5))
+    if n_panels == 1:
+        axes = [axes]
+
+    fig.suptitle(
+        f"{title} — {env_name}  (threshold ≥ {reward_threshold})",
+        fontsize=14, fontweight="bold", y=1.03,
+    )
+
+    _draw_panel(axes[0], ann_updates, snn_updates, "Training Updates", "Updates to First Solve")
+
+    if has_steps:
+        _draw_panel(axes[1], ann_steps, snn_steps, "Environment Steps", "Env Steps to First Solve")
+        axes[1].yaxis.set_major_formatter(
+            FuncFormatter(lambda v, _: (
+                f"{v/1e6:.1f}M" if v >= 1e6 else f"{v/1e3:.0f}K" if v >= 1e3 else f"{v:.0f}"
+            ))
+        )
+
+    _savefig(fig, save_path)
+
+
+def plot_sparsity_breakdown(
+    snn_metrics: Union[Dict, List[Dict]],
+    save_path: str,
+    env_name: str = "Unknown Env",
+    ann_metrics: Optional[Union[Dict, List[Dict]]] = None,
+    snn_label: str = "SNN",
+    ann_label: str = "ANN Baseline",
+    title: str = "SNN Spike Sparsity",
+) -> None:
+    """Standalone publication figure for SNN spike sparsity.
+
+    Panel 1 — Sparsity (% of neurons silent per step).
+        SNN bar with mean ± std across seeds and per-seed scatter.
+        ANN reference line at 0% (fully dense).
+
+    Panel 2 — Implied SOP activity (% of neurons that fire = 1 − sparsity).
+        Shows what fraction of the theoretical ANN compute the SNN actually uses.
+        If ``sop`` data is present, also annotates the SOP speedup.
+
+    Args:
+        snn_metrics: Single dict or list of dicts from ``dataclasses.asdict(EnergyMetrics)``
+            for the SNN model (one per seed).
+        save_path: Output PNG path.
+        env_name: Shown in the suptitle.
+        ann_metrics: Optional ANN metrics — used only to draw the ANN SOP reference bar
+            in panel 2. Does not affect panel 1 (ANN sparsity is always 0%).
+        snn_label / ann_label: Bar labels.
+        title: Figure title prefix.
+    """
+    SNN_COLOR = "#2980b9"
+    ANN_COLOR = "#7f8c8d"
+
+    def _to_list(m):
+        return m if isinstance(m, list) else [m]
+
+    snn_list = _to_list(snn_metrics)
+    ann_list = _to_list(ann_metrics) if ann_metrics is not None else []
+
+    def _extract(dicts: List[Dict], *keys: str) -> np.ndarray:
+        vals = []
+        for d in dicts:
+            node = d
+            for k in keys:
+                node = node.get(k) if isinstance(node, dict) else None
+                if node is None:
+                    break
+            try:
+                vals.append(float(node))
+            except (TypeError, ValueError):
+                vals.append(float("nan"))
+        return np.array(vals, dtype=float)
+
+    snn_sparsity = _extract(snn_list, "sparsity_factor")          # fraction inactive
+    snn_active   = 1.0 - np.where(np.isnan(snn_sparsity), np.nan, snn_sparsity)  # fraction active
+
+    # SOP data (optional — only used for panel 2 annotation)
+    snn_sop_pJ = _extract(snn_list, "sop", "snn_theoretical_pJ")
+    ann_sop_pJ = _extract(ann_list, "sop", "ann_theoretical_pJ") if ann_list else np.array([])
+    snn_speedup = _extract(snn_list, "sop", "theoretical_speedup")
+
+    has_sop = (
+        not np.all(np.isnan(snn_sop_pJ)) and
+        (not np.all(np.isnan(ann_sop_pJ)) if ann_list else True)
+    )
+
+    if np.all(np.isnan(snn_sparsity)):
+        _placeholder_plot(
+            "sparsity_factor is None in all provided SNN metrics.\n"
+            "Run the SNN benchmark to populate this field.",
+            save_path,
+        )
+        return
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 5))
+    fig.suptitle(f"{title} — {env_name}", fontsize=15, fontweight="bold", y=1.02)
+
+    # ------------------------------------------------------------------ #
+    #  Panel 1 — Sparsity %                                               #
+    # ------------------------------------------------------------------ #
+    finite_sp = snn_sparsity[~np.isnan(snn_sparsity)]
+    sp_mean = float(np.mean(finite_sp)) if finite_sp.size else float("nan")
+    sp_std  = float(np.std(finite_sp))  if finite_sp.size > 1 else 0.0
+
+    bar1 = ax1.bar(
+        [0.5], [sp_mean * 100],
+        width=0.5,
+        color=SNN_COLOR,
+        yerr=[[sp_std * 100]] if sp_std > 0 else None,
+        capsize=6,
+        edgecolor="black",
+        linewidth=0.9,
+        error_kw={"elinewidth": 1.8},
+        label=snn_label,
+    )
+    # ANN reference line — always 0% sparse (every neuron fires every step)
+    ax1.axhline(0.0, color=ANN_COLOR, linestyle="--", linewidth=1.5,
+                label=f"{ann_label} (0% sparse, fully dense)")
+
+    # Per-seed scatter
+    rng = np.random.default_rng(42)
+    if finite_sp.size > 1:
+        j = rng.uniform(-0.07, 0.07, size=finite_sp.size)
+        ax1.scatter(0.5 + j, finite_sp * 100, color="black", s=40, zorder=5, alpha=0.75, linewidths=0)
+
+    # Prominent annotation
+    ax1.text(
+        0.5, sp_mean * 100 + max(3.0, sp_std * 100 + 2),
+        f"{sp_mean * 100:.1f}%\nsilent",
+        ha="center", fontsize=14, fontweight="bold", color=SNN_COLOR,
+    )
+
+    ax1.set_xlim(0, 1)
+    ax1.set_ylim(0, 110)
+    ax1.set_xticks([0.5])
+    ax1.set_xticklabels([snn_label], fontsize=11)
+    ax1.set_ylabel("Neurons silent per step (%)", fontweight="bold")
+    _set_titles(ax1, "Spike Sparsity", "fraction of inactive neurons per env step")
+    ax1.legend(fontsize=9, loc="upper left")
+
+    # ------------------------------------------------------------------ #
+    #  Panel 2 — SOP activity fraction (1 − sparsity)                    #
+    # ------------------------------------------------------------------ #
+    finite_act = snn_active[~np.isnan(snn_active)]
+    act_mean = float(np.mean(finite_act)) if finite_act.size else float("nan")
+    act_std  = float(np.std(finite_act))  if finite_act.size > 1 else 0.0
+
+    # ANN is always 100% active
+    ax2.bar(
+        [0.0], [100.0],
+        width=0.5,
+        color=ANN_COLOR,
+        edgecolor="black",
+        linewidth=0.9,
+        label=f"{ann_label} (dense)",
+    )
+    ax2.text(0.0, 103, "100.0%", ha="center", fontsize=11, fontweight="bold", color=ANN_COLOR)
+
+    ax2.bar(
+        [1.0], [act_mean * 100],
+        width=0.5,
+        color=SNN_COLOR,
+        yerr=[[act_std * 100]] if act_std > 0 else None,
+        capsize=6,
+        edgecolor="black",
+        linewidth=0.9,
+        error_kw={"elinewidth": 1.8},
+        label=snn_label,
+    )
+
+    # Per-seed scatter on active panel
+    if finite_act.size > 1:
+        j2 = rng.uniform(-0.07, 0.07, size=finite_act.size)
+        ax2.scatter(1.0 + j2, finite_act * 100, color="black", s=40, zorder=5, alpha=0.75, linewidths=0)
+
+    # SOP speedup annotation if available
+    finite_speedup = snn_speedup[~np.isnan(snn_speedup)]
+    if finite_speedup.size > 0:
+        mean_speedup = float(np.mean(finite_speedup))
+        ax2.text(
+            1.0, act_mean * 100 + max(3.0, act_std * 100 + 2),
+            f"{act_mean * 100:.1f}% active\n({mean_speedup:.1f}× SOP speedup)",
+            ha="center", fontsize=11, fontweight="bold", color=SNN_COLOR,
+        )
+    else:
+        ax2.text(
+            1.0, act_mean * 100 + max(3.0, act_std * 100 + 2),
+            f"{act_mean * 100:.1f}%\nactive",
+            ha="center", fontsize=11, fontweight="bold", color=SNN_COLOR,
+        )
+
+    ax2.set_xlim(-0.5, 1.5)
+    ax2.set_ylim(0, 130)
+    ax2.set_xticks([0.0, 1.0])
+    ax2.set_xticklabels([ann_label, snn_label], fontsize=11)
+    ax2.set_ylabel("Neurons active per step (%)", fontweight="bold")
+    _set_titles(ax2, "Synaptic Activity vs ANN Reference",
+                "lower = fewer ops on neuromorphic hardware")
+    ax2.legend(fontsize=9, loc="upper right")
+    ax2.text(
+        0.5, -0.17,
+        "Horowitz (2014): SNN uses AC ops (0.9 pJ) vs ANN MAC ops (4.6 pJ)",
+        transform=ax2.transAxes,
+        ha="center", fontsize=8, color="gray", style="italic",
+    )
+
     _savefig(fig, save_path)

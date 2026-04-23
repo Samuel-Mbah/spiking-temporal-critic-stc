@@ -8,10 +8,11 @@ wandb_dir: "results/wandb/tmaze_ann"
 save_ckpt: true
 device: "cuda"         # or "cpu"
 env_seed: 42
-instrument_timing: false # T-Maze is fast, timing might add overhead
+instrument_timing: true
+timing_log_interval: 100
 
 experiment_meta:
-  repeats: 1
+  repeats: 5
   base_seed: 42
   per_repeat_tag: "tmaze"
 
@@ -30,6 +31,8 @@ logging:
   checkpoint_interval_updates: 5
   save_last_checkpoint: true
   logger_collect_spikes: false
+  activations_probe_interval: 100
+  latency_probe_interval: 100
 
 training:
   shuffle_minibatches: false
@@ -53,6 +56,9 @@ ppo:
   eval_episodes: 20
   reward_threshold: 0.95
   success_rate_threshold: 95.0
+  solved_window_eval_episodes: 100
+  eval_seed: 42
+  scale_returns_to_value: false
 
 # Post-training/post-conversion validation trace collection budget + protocol.
 # Used by surrogate/conversion validation-data collection.

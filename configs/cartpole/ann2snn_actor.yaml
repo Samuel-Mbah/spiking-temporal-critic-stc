@@ -14,7 +14,7 @@ instrument_timing: true
 timing_log_interval: 100
 
 experiment_meta:
-  repeats: 1                   # Defer to shell script
+  repeats: 5
   base_seed: 42
   per_repeat_tag: "research"
 
@@ -45,16 +45,17 @@ ppo:
   lr: 0.001
   gamma: 0.99
   lam: 0.95
-  clip_eps: 0.1
+  clip_eps: 0.2
   clip_range_vf: 0.2
   entropy_coef: 0.0
-  value_coef: 1.0
+  value_coef: 0.5
   max_grad_norm: 0.5
   target_kl: 0.015
-  print_interval_updates: 10
+  print_interval_updates: 20
   eval_interval_updates: 20
   eval_episodes: 20
   solved_window_eval_episodes: 100
+  eval_seed: 42
   reward_threshold: 475.0
   success_rate_threshold: 95.0
   scale_returns_to_value: false

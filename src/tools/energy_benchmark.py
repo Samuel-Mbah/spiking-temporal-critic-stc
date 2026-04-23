@@ -489,15 +489,15 @@ class EnergyBenchmark:
         # Do NOT use this field for ANN/SNN comparisons in papers.
         inference_joules_per_step = None
         if model_type == "SNN":
-            T = 1
-            if   hasattr(model, "actor") and hasattr(model.actor, "T"): T = model.actor.T
-            elif hasattr(model, "T"):                                     T = model.T
+            T: int = 1
+            if   hasattr(model, "actor") and hasattr(model.actor, "T"): T = int(model.actor.T)
+            elif hasattr(model, "T"):                                     T = int(model.T)
             total_inf_steps = total_env_steps * T
             if total_inf_steps > 0:
-                inference_joules_per_step = total_dynamic / total_inf_steps
+                inference_joules_per_step = float(total_dynamic / total_inf_steps)
         else:
             if total_env_steps > 0:
-                inference_joules_per_step = total_dynamic / total_env_steps
+                inference_joules_per_step = float(total_dynamic / total_env_steps)
 
         # --- SNN-specific: spike stats + SOP theoretical energy ---
         energy_per_spike = None
@@ -522,6 +522,19 @@ class EnergyBenchmark:
                     spike_count=total_spikes,
                     n_synapses=n_synapses,
                     ann_activations=ann_activations,
+                    e_ac_pJ=sop_e_ac_pJ,
+                    e_mac_pJ=sop_e_mac_pJ,
+                )
+
+        else:
+            # ANN SOP baseline: every neuron fires a MAC every env step.
+            # spike_count=0 → snn_theoretical_pJ=0; ann_theoretical_pJ is the
+            # reference energy used as the denominator in the SNN speedup claim.
+            if n_synapses > 0 and total_env_steps > 0:
+                sop_result = compute_sop_energy(
+                    spike_count=0.0,
+                    n_synapses=n_synapses,
+                    ann_activations=float(total_env_steps),
                     e_ac_pJ=sop_e_ac_pJ,
                     e_mac_pJ=sop_e_mac_pJ,
                 )

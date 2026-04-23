@@ -34,6 +34,37 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
+# Metric key variants (canonical key → list of fallback aliases)
+METRIC_VARIANTS = {
+    "train_rewards": ["train/rollout_reward", "train/reward"],
+    "test_rewards": ["eval/rolling_reward", "eval/current_reward"],
+    "episode_lengths": ["post_eval/episode_length_mean"],
+    "train_rollout_energy": ["energy/train_full_update"],
+    "train_rollout_dynamic_energy": ["energy/train_full_update_dynamic"],
+    "train_full_update_energy": ["energy/train_full_update"],
+    "train_full_update_dynamic_energy": ["energy/train_full_update_dynamic"],
+    "total_energy": ["energy/total"],
+    "total_dynamic_energy": ["energy/total_dynamic"],
+    "inference_energy": ["energy/eval_update"],
+    "inference_dynamic_energy": ["energy/eval_update_dynamic"],
+    "idle_power_watts": ["energy/idle_power_watts"],
+    "latency_ms": ["latency/mean_ms"],
+    "spike_timing_steps": ["latency/spike_timing_steps"],
+    "actor_spike_timing_steps": ["latency/actor_spike_timing_steps"],
+    "critic_spike_timing_steps": ["latency/critic_spike_timing_steps"],
+    "eval_success_rate": ["eval/success_rate"],
+    "eval_success_count": ["eval/success_count"],
+    "eval_n_eval_episodes": ["eval/n_eval_episodes"],
+    "eval_episode_length": ["eval/episode_length"],
+    "eval_spikes_total": ["spikes/eval_total"],
+    "eval_spikes_actor": ["spikes/eval_actor"],
+    "eval_spikes_critic": ["spikes/eval_critic"],
+    "zs_reward": ["post_conversion/zero_shot_reward"],
+    "zs_energy": ["post_conversion/zs_energy"],
+    "zs_latency": ["post_conversion/mean_latency"],
+    "zs_spikes": ["post_conversion/total_spikes"],
+}
+
 # ---------------------------------------------------------------------
 # IO utilities
 # ---------------------------------------------------------------------
@@ -150,6 +181,34 @@ def calculate_cumulative_steps(per_episode_data: pd.DataFrame) -> np.ndarray:
         return np.cumsum(np.array(per_episode_data['test_reward'].values, dtype=float))
 
 
+def compute_updates_to_solve(
+    df: pd.DataFrame,
+    reward_threshold: float,
+    reward_col: str = "test_reward",
+    steps_col: str = "total_timesteps",
+    update_col: str = "update",
+) -> Optional[Dict[str, float]]:
+    """Return the first training update at which the rolling eval reward exceeds the threshold.
+
+    Works purely post-hoc on the per_episode_metrics CSV produced by the trainer.
+    ``reward_col`` is sparse (only populated at eval intervals); rows with NaN are skipped.
+
+    Returns:
+        Dict with keys ``update`` and ``total_steps``, or ``None`` if never solved.
+    """
+    eval_rows = df[df[reward_col].notna()].copy()
+    if eval_rows.empty:
+        return None
+    solved = eval_rows[eval_rows[reward_col] >= reward_threshold]
+    if solved.empty:
+        return None
+    first = solved.iloc[0]
+    result: Dict[str, float] = {"update": float(first[update_col])}
+    if steps_col in df.columns:
+        result["total_steps"] = float(first[steps_col])
+    return result
+
+
 def ensure_dir(p):
     os.makedirs(p, exist_ok=True)
     return p
@@ -200,6 +259,49 @@ def _extract_steps_from_raw_json(out_dir: str, key: str) -> List[float]:
         return []
 
 
+def _resolve_metric(
+    logger_obj: Any,
+    key_variants: List[str],
+    out_dir: Optional[str] = None,
+    existing_df: Optional[pd.DataFrame] = None,
+) -> List[float]:
+    """
+    Resolve a metric from multiple sources in priority order.
+
+    Args:
+        logger_obj: PPO logger object (or None)
+        key_variants: List of key names to try in order
+        out_dir: Directory containing metrics_raw.json (fallback)
+        existing_df: Existing CSV DataFrame (final fallback)
+
+    Returns:
+        List of metric values, or empty list if not found
+    """
+    # Try logger object first
+    if logger_obj:
+        for key in key_variants:
+            result = _extract_metric(logger_obj, key)
+            if result:
+                return result
+
+    # Try raw JSON
+    if out_dir:
+        for key in key_variants:
+            result = _extract_metric_from_raw_json(out_dir, key)
+            if result:
+                return result
+
+    # Try existing CSV
+    if existing_df is not None:
+        for key in key_variants:
+            if key in existing_df.columns:
+                result = existing_df[key].dropna().tolist()
+                if result:
+                    return result
+
+    return []
+
+
 def _align_values_to_train_timeline(
     values: List[float],
     sparse_steps: List[float],
@@ -238,85 +340,122 @@ def calculate_and_save_metrics_csv(
 ) -> Dict[str, Any]:
     """
     Calculates metrics from a result dict and saves them to CSVs.
-    INTELLIGENT MERGE: Preserves energy/latency data from existing logger CSVs.
+    Preserves energy/latency data from existing logger CSVs via intelligent merge.
     """
-    out_dir    = ensure_dir(out_dir)
+    out_dir = ensure_dir(out_dir)
     logger_log = logging.getLogger(__name__)
-
-    train_rewards   = result.get("train_rewards", [])
-    test_rewards    = result.get("test_rewards", [])
-    episode_lengths = result.get("episode_lengths", [])
-    train_steps     = []
-    done_counts     = []
-    episode_counts  = []
-    eval_steps      = []
-    test_source_key = None
-
-    spike_train       = result.get("spike_counts_train", [])
-    spike_eval        = result.get("spike_counts_eval",  [])
-    spike_total       = []
-    spike_actor       = []
-    spike_critic      = []
-    spikes_per_step   = []
-    spikes_actor_per_step  = []
-    spikes_critic_per_step = []
-    firing_rate       = []
-
     logger_obj = result.get("logger")
 
-    # Energy / latency lists
-    train_rollout_energy              = []
-    train_rollout_dynamic_energy      = []
-    train_full_update_energy          = []
-    train_full_update_dynamic_energy  = []
-    total_energy                      = []
-    total_dynamic_energy              = []
-    inference_energy                  = []
-    inference_dynamic_energy          = []
-    idle_power_watts                  = []
-    latency_ms                        = []
-    spike_timing_steps                = []
-    actor_spike_timing_steps          = []
-    critic_spike_timing_steps         = []
-    critic_eval_spike_timing_steps    = []
-    eval_critic_tau_mean              = []
-    eval_critic_tau_std               = []
-    eval_critic_value_mean            = []
-    eval_critic_value_std             = []
-    eval_wall_clock_ms                = []
-    eval_spike_timing_steps           = []
-    zs_reward                         = []
-    zs_energy                         = []
-    zs_latency                        = []
-    zs_spikes                         = []
-    zs_sparsity                       = []
-    eval_success_rate                 = []
-    eval_success_count                = []
-    eval_n_eval_episodes              = []
-    eval_episode_length               = []
-    eval_spikes_total                 = []
-    eval_spikes_actor                 = []
-    eval_spikes_critic                = []
-    eval_spikes_per_step              = []
-    eval_spikes_actor_per_step        = []
-    eval_spikes_critic_per_step       = []
-    ft_success_rate                   = []
-    ft_success_count                  = []
-    ft_n_eval_episodes                = []
-    zs_solved_success_rate            = []
-    ft_train_reward                   = []
-    ft_eval_reward                    = []
-    ft_energy                         = []
-    ft_latency                        = []
+    train_rewards = result.get("train_rewards", [])
+    test_rewards = result.get("test_rewards", [])
+    episode_lengths = result.get("episode_lengths", [])
+    train_steps = []
+    done_counts = []
+    episode_counts = []
+    eval_steps = []
+    test_source_key = None
+
+    spike_train = result.get("spike_counts_train", [])
+    spike_eval = result.get("spike_counts_eval", [])
+
+    # Load existing CSV for metric recovery
+    csv_path = os.path.join(out_dir, "per_episode_metrics.csv")
+    existing_df = pd.DataFrame()
+    if os.path.exists(csv_path):
+        try:
+            existing_df = pd.read_csv(csv_path)
+        except Exception:
+            pass
+
+    # Metric dict: maps local var name → (key_variants, extract_fn_choice)
+    metrics_to_resolve = {
+        "train_rollout_energy": ["energy/train_full_update"],
+        "train_rollout_dynamic_energy": ["energy/train_full_update_dynamic"],
+        "train_full_update_energy": ["energy/train_full_update"],
+        "train_full_update_dynamic_energy": ["energy/train_full_update_dynamic"],
+        "total_energy": ["energy/total"],
+        "total_dynamic_energy": ["energy/total_dynamic"],
+        "inference_energy": ["energy/eval_update"],
+        "inference_dynamic_energy": ["energy/eval_update_dynamic"],
+        "idle_power_watts": ["energy/idle_power_watts"],
+        "latency_ms": ["latency/mean_ms"],
+        "spike_timing_steps": ["latency/spike_timing_steps"],
+        "actor_spike_timing_steps": ["latency/actor_spike_timing_steps"],
+        "critic_spike_timing_steps": ["latency/critic_spike_timing_steps"],
+        "eval_success_rate": ["eval/success_rate"],
+        "eval_success_count": ["eval/success_count"],
+        "eval_n_eval_episodes": ["eval/n_eval_episodes"],
+        "eval_episode_length": ["eval/episode_length"],
+        "eval_spikes_total": ["spikes/eval_total"],
+        "eval_spikes_actor": ["spikes/eval_actor"],
+        "eval_spikes_critic": ["spikes/eval_critic"],
+        "zs_reward": ["post_conversion/zero_shot_reward"],
+        "zs_energy": ["post_conversion/zs_energy"],
+        "zs_latency": ["post_conversion/mean_latency"],
+        "zs_spikes": ["post_conversion/total_spikes"],
+    }
+
+    resolved = {}
+    for var_name, key_variants in metrics_to_resolve.items():
+        resolved[var_name] = _resolve_metric(logger_obj, key_variants, out_dir, existing_df)
+
+    # Unpack resolved metrics into local variables
+    train_rollout_energy = resolved["train_rollout_energy"]
+    train_rollout_dynamic_energy = resolved["train_rollout_dynamic_energy"]
+    train_full_update_energy = resolved["train_full_update_energy"]
+    train_full_update_dynamic_energy = resolved["train_full_update_dynamic_energy"]
+    total_energy = resolved["total_energy"]
+    total_dynamic_energy = resolved["total_dynamic_energy"]
+    inference_energy = resolved["inference_energy"]
+    inference_dynamic_energy = resolved["inference_dynamic_energy"]
+    idle_power_watts = resolved["idle_power_watts"]
+    latency_ms = resolved["latency_ms"]
+    spike_timing_steps = resolved["spike_timing_steps"]
+    actor_spike_timing_steps = resolved["actor_spike_timing_steps"]
+    critic_spike_timing_steps = resolved["critic_spike_timing_steps"]
+    eval_success_rate = resolved["eval_success_rate"]
+    eval_success_count = resolved["eval_success_count"]
+    eval_n_eval_episodes = resolved["eval_n_eval_episodes"]
+    eval_episode_length = resolved["eval_episode_length"]
+    eval_spikes_total = resolved["eval_spikes_total"]
+    eval_spikes_actor = resolved["eval_spikes_actor"]
+    eval_spikes_critic = resolved["eval_spikes_critic"]
+    zs_reward = resolved["zs_reward"]
+    zs_energy = resolved["zs_energy"]
+    zs_latency = resolved["zs_latency"]
+    zs_spikes = resolved["zs_spikes"]
+
+    spike_total = []
+    spike_actor = []
+    spike_critic = []
+    spikes_per_step = []
+    spikes_actor_per_step = []
+    spikes_critic_per_step = []
+    firing_rate = []
+    critic_eval_spike_timing_steps = []
+    eval_critic_tau_mean = []
+    eval_critic_tau_std = []
+    eval_critic_value_mean = []
+    eval_critic_value_std = []
+    eval_wall_clock_ms = []
+    eval_spike_timing_steps = []
+    zs_sparsity = []
+    eval_spikes_per_step = []
+    eval_spikes_actor_per_step = []
+    eval_spikes_critic_per_step = []
+    ft_success_rate = []
+    ft_success_count = []
+    ft_n_eval_episodes = []
+    zs_solved_success_rate = []
+    ft_train_reward = []
+    ft_eval_reward = []
+    ft_energy = []
+    ft_latency = []
 
     if logger_obj:
         if not train_rewards:
-            train_rewards = (
-                _extract_metric(logger_obj, "train/rollout_reward")
-                or _extract_metric(logger_obj, "train/reward")
-            )
+            train_rewards = _resolve_metric(logger_obj, ["train/rollout_reward", "train/reward"])
         if not test_rewards:
-            # FIX: was eval/episode_reward_ma100 → eval/rolling_reward
             test_rewards = _extract_metric(logger_obj, "eval/rolling_reward")
             if test_rewards:
                 test_source_key = "eval/rolling_reward"
@@ -326,56 +465,6 @@ def calculate_and_save_metrics_csv(
                     test_source_key = "eval/current_reward"
             if not test_rewards and hasattr(logger_obj, "_last_eval_rewards"):
                 test_rewards = list(logger_obj._last_eval_rewards)
-
-        # FIX: energy/train_rollout removed → energy/train_full_update
-        train_rollout_energy             = _extract_metric(logger_obj, "energy/train_full_update")
-        train_rollout_dynamic_energy     = _extract_metric(logger_obj, "energy/train_full_update_dynamic")
-        train_full_update_energy         = _extract_metric(logger_obj, "energy/train_full_update")
-        train_full_update_dynamic_energy = _extract_metric(logger_obj, "energy/train_full_update_dynamic")
-        total_energy                     = _extract_metric(logger_obj, "energy/total")
-        total_dynamic_energy             = _extract_metric(logger_obj, "energy/total_dynamic")
-        # FIX: energy/inference → energy/eval_update
-        inference_energy                 = _extract_metric(logger_obj, "energy/eval_update")
-        inference_dynamic_energy         = _extract_metric(logger_obj, "energy/eval_update_dynamic")
-        idle_power_watts                 = _extract_metric(logger_obj, "energy/idle_power_watts")
-        latency_ms                       = _extract_metric(logger_obj, "latency/mean_ms")
-        spike_timing_steps               = _extract_metric(logger_obj, "latency/spike_timing_steps")
-        actor_spike_timing_steps         = _extract_metric(logger_obj, "latency/actor_spike_timing_steps")
-        critic_spike_timing_steps        = _extract_metric(logger_obj, "latency/critic_spike_timing_steps")
-        critic_eval_spike_timing_steps   = _extract_metric(logger_obj, "latency/critic_eval_spike_timing_steps")
-        eval_wall_clock_ms               = _extract_metric(logger_obj, "latency/eval_wall_clock_ms")
-        eval_spike_timing_steps          = _extract_metric(logger_obj, "latency/eval_spike_timing_steps")
-        eval_critic_tau_mean             = _extract_metric(logger_obj, "eval/critic_tau_mean")
-        eval_critic_tau_std              = _extract_metric(logger_obj, "eval/critic_tau_std")
-        eval_critic_value_mean           = _extract_metric(logger_obj, "eval/critic_value_mean")
-        eval_critic_value_std            = _extract_metric(logger_obj, "eval/critic_value_std")
-        eval_success_rate                = _extract_metric(logger_obj, "eval/success_rate")
-        eval_success_count               = _extract_metric(logger_obj, "eval/success_count")
-        eval_n_eval_episodes             = _extract_metric(logger_obj, "eval/n_eval_episodes")
-        # FIX: was eval/ep_len → eval/episode_length
-        eval_episode_length              = _extract_metric(logger_obj, "eval/episode_length")
-        # FIX: eval/spikes → spikes/eval_total; eval/spikes_actor → spikes/eval_actor; etc.
-        eval_spikes_total                = _extract_metric(logger_obj, "spikes/eval_total")
-        eval_spikes_actor                = _extract_metric(logger_obj, "spikes/eval_actor")
-        eval_spikes_critic               = _extract_metric(logger_obj, "spikes/eval_critic")
-        # FIX: eval/spikes_per_step removed → use per-component per-step
-        eval_spikes_per_step             = _extract_metric(logger_obj, "eval/spikes_actor_per_step")
-        eval_spikes_actor_per_step       = _extract_metric(logger_obj, "eval/spikes_actor_per_step")
-        eval_spikes_critic_per_step      = _extract_metric(logger_obj, "eval/spikes_critic_per_step")
-
-        zs_reward      = _extract_metric(logger_obj, "post_conversion/zero_shot_reward")
-        zs_energy      = _extract_metric(logger_obj, "post_conversion/zs_energy")
-        zs_latency     = _extract_metric(logger_obj, "post_conversion/mean_latency")
-        zs_spikes      = _extract_metric(logger_obj, "post_conversion/total_spikes")
-        zs_sparsity    = _extract_metric(logger_obj, "post_conversion/sparsity")
-        zs_solved_success_rate = _extract_metric(logger_obj, "post_conversion/zero_shot_success_rate")
-        ft_train_reward        = _extract_metric(logger_obj, "post_conversion_ft/train_reward")
-        ft_eval_reward         = _extract_metric(logger_obj, "post_conversion_ft/current_reward")
-        ft_energy              = _extract_metric(logger_obj, "energy/eval_update")
-        ft_latency             = _extract_metric(logger_obj, "post_conversion_ft/train_latency")
-        ft_success_rate        = _extract_metric(logger_obj, "post_conversion_ft/success_rate")
-        ft_success_count       = _extract_metric(logger_obj, "post_conversion_ft/success_count")
-        ft_n_eval_episodes     = _extract_metric(logger_obj, "post_conversion_ft/n_eval_episodes")
 
         if not spike_train:
             spike_train = _extract_metric(logger_obj, "spikes/train_count")
@@ -396,31 +485,43 @@ def calculate_and_save_metrics_csv(
         if not firing_rate:
             firing_rate = _extract_metric(logger_obj, "spikes/eval_sparsity")
 
+        zs_sparsity = _extract_metric(logger_obj, "post_conversion/sparsity") or []
+        zs_solved_success_rate = _extract_metric(logger_obj, "post_conversion/zero_shot_success_rate") or []
+        ft_train_reward = _extract_metric(logger_obj, "post_conversion_ft/train_reward") or []
+        ft_eval_reward = _extract_metric(logger_obj, "post_conversion_ft/current_reward") or []
+        ft_energy = _extract_metric(logger_obj, "energy/eval_update") or []
+        ft_latency = _extract_metric(logger_obj, "post_conversion_ft/train_latency") or []
+        ft_success_rate = _extract_metric(logger_obj, "post_conversion_ft/success_rate") or []
+        ft_success_count = _extract_metric(logger_obj, "post_conversion_ft/success_count") or []
+        ft_n_eval_episodes = _extract_metric(logger_obj, "post_conversion_ft/n_eval_episodes") or []
+        critic_eval_spike_timing_steps = _extract_metric(logger_obj, "latency/critic_eval_spike_timing_steps") or []
+        eval_wall_clock_ms = _extract_metric(logger_obj, "latency/eval_wall_clock_ms") or []
+        eval_spike_timing_steps = _extract_metric(logger_obj, "latency/eval_spike_timing_steps") or []
+        eval_critic_tau_mean = _extract_metric(logger_obj, "eval/critic_tau_mean") or []
+        eval_critic_tau_std = _extract_metric(logger_obj, "eval/critic_tau_std") or []
+        eval_critic_value_mean = _extract_metric(logger_obj, "eval/critic_value_mean") or []
+        eval_critic_value_std = _extract_metric(logger_obj, "eval/critic_value_std") or []
+        eval_spikes_per_step = _extract_metric(logger_obj, "eval/spikes_actor_per_step") or []
+        eval_spikes_actor_per_step = _extract_metric(logger_obj, "eval/spikes_actor_per_step") or []
+        eval_spikes_critic_per_step = _extract_metric(logger_obj, "eval/spikes_critic_per_step") or []
+
         if hasattr(logger_obj, "history"):
-            step_events    = logger_obj.history.get("train/rollout_reward", [])
-            train_steps    = [e.step for e in step_events]
-            done_events    = logger_obj.history.get("train/rollout_done_count", [])
-            done_counts    = [e.value for e in done_events]
+            step_events = logger_obj.history.get("train/rollout_reward", [])
+            train_steps = [e.step for e in step_events]
+            done_events = logger_obj.history.get("train/rollout_done_count", [])
+            done_counts = [e.value for e in done_events]
             episode_events = logger_obj.history.get("train/rollout_episode_count", [])
             episode_counts = [e.value for e in episode_events]
             if test_source_key:
                 eval_events = logger_obj.history.get(test_source_key, [])
-                eval_steps  = [e.step for e in eval_events]
+                eval_steps = [e.step for e in eval_events]
 
-    # Raw JSON fallbacks
     if not train_rewards:
-        train_rewards = (
-            _extract_metric_from_raw_json(out_dir, "train/rollout_reward")
-            or _extract_metric_from_raw_json(out_dir, "train/reward")
-        )
+        train_rewards = _resolve_metric(logger_obj, ["train/rollout_reward", "train/reward"], out_dir, existing_df)
     if not test_rewards:
-        test_rewards = _extract_metric_from_raw_json(out_dir, "eval/rolling_reward")
-        if test_rewards:
-            test_source_key = "eval/rolling_reward"
-        else:
-            test_rewards = _extract_metric_from_raw_json(out_dir, "eval/current_reward")
-            if test_rewards:
-                test_source_key = "eval/current_reward"
+        test_rewards = _resolve_metric(logger_obj, ["eval/rolling_reward", "eval/current_reward"], out_dir, existing_df)
+        if not test_source_key:
+            test_source_key = "eval/rolling_reward" if test_rewards else "eval/current_reward"
     if not train_steps:
         train_steps = _extract_steps_from_raw_json(out_dir, "train/rollout_reward")
     if not eval_steps and test_source_key:
@@ -429,40 +530,14 @@ def calculate_and_save_metrics_csv(
         done_counts = _extract_metric_from_raw_json(out_dir, "train/rollout_done_count")
     if not episode_counts:
         episode_counts = _extract_metric_from_raw_json(out_dir, "train/rollout_episode_count")
-    if not eval_n_eval_episodes:
-        eval_n_eval_episodes = _extract_metric_from_raw_json(out_dir, "eval/n_eval_episodes")
-    if not eval_success_rate:
-        eval_success_rate = _extract_metric_from_raw_json(out_dir, "eval/success_rate")
-    if not eval_success_count:
-        eval_success_count = _extract_metric_from_raw_json(out_dir, "eval/success_count")
-    if not eval_episode_length:
-        eval_episode_length = _extract_metric_from_raw_json(out_dir, "eval/episode_length")
-    if not eval_spikes_total:
-        eval_spikes_total = _extract_metric_from_raw_json(out_dir, "spikes/eval_total")
-    if not eval_spikes_actor:
-        eval_spikes_actor = _extract_metric_from_raw_json(out_dir, "spikes/eval_actor")
-    if not eval_spikes_critic:
-        eval_spikes_critic = _extract_metric_from_raw_json(out_dir, "spikes/eval_critic")
-    if not eval_spikes_per_step:
-        eval_spikes_per_step = _extract_metric_from_raw_json(out_dir, "eval/spikes_actor_per_step")
-    if not eval_spikes_actor_per_step:
-        eval_spikes_actor_per_step = _extract_metric_from_raw_json(out_dir, "eval/spikes_actor_per_step")
-    if not eval_spikes_critic_per_step:
-        eval_spikes_critic_per_step = _extract_metric_from_raw_json(out_dir, "eval/spikes_critic_per_step")
-    if not train_rollout_dynamic_energy:
-        train_rollout_dynamic_energy = _extract_metric_from_raw_json(out_dir, "energy/train_full_update_dynamic")
-    if not train_full_update_energy:
-        train_full_update_energy = _extract_metric_from_raw_json(out_dir, "energy/train_full_update")
-    if not train_full_update_dynamic_energy:
-        train_full_update_dynamic_energy = _extract_metric_from_raw_json(out_dir, "energy/train_full_update_dynamic")
-    if not total_dynamic_energy:
-        total_dynamic_energy = _extract_metric_from_raw_json(out_dir, "energy/total_dynamic")
-    if not inference_dynamic_energy:
-        inference_dynamic_energy = _extract_metric_from_raw_json(out_dir, "energy/eval_update_dynamic")
-    if not idle_power_watts:
-        idle_power_watts = _extract_metric_from_raw_json(out_dir, "energy/idle_power_watts")
     if not episode_lengths:
         episode_lengths = _extract_metric_from_raw_json(out_dir, "post_eval/episode_length_mean")
+    if not spike_train:
+        spike_train = _extract_metric_from_raw_json(out_dir, "spikes/train_count")
+    if not spike_eval:
+        spike_eval = _extract_metric_from_raw_json(out_dir, "spikes/eval_count")
+    if not spike_total:
+        spike_total = _extract_metric_from_raw_json(out_dir, "spikes/eval_total") or _extract_metric_from_raw_json(out_dir, "spike_count_total")
     if not spike_actor:
         spike_actor = _extract_metric_from_raw_json(out_dir, "spikes/eval_actor")
     if not spike_critic:
@@ -471,39 +546,6 @@ def calculate_and_save_metrics_csv(
         spikes_actor_per_step = _extract_metric_from_raw_json(out_dir, "eval/spikes_actor_per_step")
     if not spikes_critic_per_step:
         spikes_critic_per_step = _extract_metric_from_raw_json(out_dir, "eval/spikes_critic_per_step")
-
-    # Recover from existing CSV
-    csv_path   = os.path.join(out_dir, "per_episode_metrics.csv")
-    existing_df = pd.DataFrame()
-    if os.path.exists(csv_path):
-        try:
-            existing_df = pd.read_csv(csv_path)
-            if not train_rollout_energy and "train_rollout_energy" in existing_df:
-                train_rollout_energy = existing_df["train_rollout_energy"].dropna().tolist()
-            if not total_energy and "total_energy" in existing_df:
-                total_energy = existing_df["total_energy"].dropna().tolist()
-            if not total_dynamic_energy and "total_dynamic_energy" in existing_df:
-                total_dynamic_energy = existing_df["total_dynamic_energy"].dropna().tolist()
-            if not inference_energy and "inference_energy" in existing_df:
-                inference_energy = existing_df["inference_energy"].dropna().tolist()
-            if not inference_dynamic_energy and "inference_dynamic_energy" in existing_df:
-                inference_dynamic_energy = existing_df["inference_dynamic_energy"].dropna().tolist()
-            if not train_full_update_energy and "train_full_update_energy" in existing_df:
-                train_full_update_energy = existing_df["train_full_update_energy"].dropna().tolist()
-            if not train_full_update_dynamic_energy and "train_full_update_dynamic_energy" in existing_df:
-                train_full_update_dynamic_energy = existing_df["train_full_update_dynamic_energy"].dropna().tolist()
-            if not train_rollout_dynamic_energy and "train_rollout_dynamic_energy" in existing_df:
-                train_rollout_dynamic_energy = existing_df["train_rollout_dynamic_energy"].dropna().tolist()
-            if not idle_power_watts and "energy_idle_power_watts" in existing_df:
-                idle_power_watts = existing_df["energy_idle_power_watts"].dropna().tolist()
-            if not spike_train and "spike_count_train" in existing_df:
-                spike_train = existing_df["spike_count_train"].dropna().tolist()
-            if not spike_eval and "spike_count_eval" in existing_df:
-                spike_eval = existing_df["spike_count_eval"].dropna().tolist()
-            if "spike_count_total" in existing_df:
-                spike_total = existing_df["spike_count_total"].dropna().tolist()
-        except Exception:
-            pass
 
     if not train_rewards and not test_rewards:
         if not existing_df.empty and "train_reward" in existing_df.columns:

@@ -1,47 +1,47 @@
-"""Spike-count based SNN actor using Leaky Integrate-and-Fire neurons and Poisson encoding."""
+"""Spike-count actor built from Leaky Integrate-and-Fire blocks.
+
+Wraps snntorch layers to encode inputs over `T` time steps, log spike stats, and
+optionally concatenate critic predictions for actor-critic workflows.
+"""
 import torch
 import torch.nn as nn
 import snntorch as snn
 from snntorch import surrogate
+from typing import Optional
 
 from src.models.snn_utils import poisson_encode, init_lif_states
 from src.models.snn_block import SNNBlock
 
 
 class SNNSpikeActor(nn.Module):
-    """
-    Spike-count based SNN actor, compatible with ANN BackboneNetwork interface.
-
-    Inputs are Poisson-encoded into spike trains over T timesteps.  Output logits
-    are derived from accumulated synaptic current across the simulation window.
-    """
-
     def __init__(
-            self,
-            in_dim: int,
-            hid_dim: int,
-            out_dim: int,
-            *,
-            beta: float = 0.95,
-            V_th: float = 1.0,
-            T: int = 32,
-            poisson_encode: bool = True,
-            rate_scale: float = 1.0,
-            logit_temp: float = 1.0,
-            center_logits: bool = True,
-            use_potential_fallback: bool = True,   # kept for API/checkpoint compat; see note below
-            actor_surrogate_slope: float = 25.0,
+        self,
+        in_dim: int,
+        hid_dim: int,
+        out_dim: int,
+        *,
+        beta: float = 0.95,
+        V_th: float = 1.0,
+        T: int = 32,
+        poisson_encode: bool = False,
+        rate_scale: float = 1.0,
+        logit_temp: float = 1.0,
+        center_logits: bool = True,
+        use_potential_fallback: bool = False,
+        actor_surrogate_slope: float = 25.0,
     ):
         super().__init__()
 
         self.T = int(T)
         self.use_poisson_encode = bool(poisson_encode)
-        self.rate_scale  = float(rate_scale)
-        self.logit_temp  = float(logit_temp)
+        self.rate_scale = float(rate_scale)
+        self.logit_temp = float(logit_temp)
         self.center_logits = bool(center_logits)
+        self.use_potential_fallback = bool(use_potential_fallback)
 
         sg = surrogate.fast_sigmoid(slope=int(actor_surrogate_slope))
 
+        # Stack three SNN blocks to grow a deep spike-processing actor.
         self.block1 = SNNBlock(
             nn.Linear(in_dim, hid_dim),
             snn.Leaky(beta=beta, threshold=V_th, spike_grad=sg),
@@ -55,49 +55,25 @@ class SNNSpikeActor(nn.Module):
             snn.Leaky(beta=beta, threshold=V_th, spike_grad=sg),
         )
 
-        self._last_reg         = torch.tensor(0.0)
-        self._last_spike_count = 0.0
-        self._last_latency     = 0.0
-
-    # ------------------------------------------------------------------
-
-    def forward(
-        self,
-        x: torch.Tensor,
-        critic_value: torch.Tensor = None,
-        return_activations: bool = False,
-        **kwargs,
-    ) -> torch.Tensor:
-        """Standard forward pass compatible with ANN backbone signature."""
-        return_temporal = bool(kwargs.get("return_temporal", False))
-        result = self.forward_T(
-            x,
-            critic_value=critic_value,
-            return_activations=return_activations,
-            return_temporal=return_temporal,
-        )
-        if return_activations:
-            logits, _, activations = result
-            return logits, activations
-        logits, _ = result
-        return logits
+        self._last_reg = torch.tensor(0.0)
+        self._last_spike_count_total = 0.0
+        self._last_spike_count_per_env = None
+        self._last_latency = 0.0
 
     def forward_T(
         self,
         x: torch.Tensor,
-        critic_value: torch.Tensor = None,
+        critic_value: Optional[torch.Tensor] = None,
         return_activations: bool = False,
         return_temporal: bool = False,
     ):
         B = x.size(0)
 
-        # Critic-informs-actor: append value signal to observation
         if critic_value is not None:
             cv = critic_value.unsqueeze(-1) if critic_value.dim() == 1 else critic_value
             x = torch.cat([x, cv], dim=-1)
 
-        # FIX: gate on self.use_poisson_encode (bool) so the imported
-        # poisson_encode function is never shadowed.
+        # Encode the input spikes across time steps with optional Poisson noise.
         if self.use_poisson_encode:
             spk_in = poisson_encode(x, self.T, self.rate_scale)
         else:
@@ -110,59 +86,73 @@ class SNNSpikeActor(nn.Module):
             self.block_out.linear.out_features,
         )
 
-        out_dim    = self.block_out.linear.out_features
+        out_dim = self.block_out.linear.out_features
         out_counts = x.new_zeros(B, out_dim)
         iout_accum = torch.zeros_like(out_counts)
-        spike_mean = 0.0
-        spike_sum  = 0.0
 
+        # Track cumulative spike statistics used for the regularizer and diagnostics.
+        spike_mean = 0.0
+        per_env_spike_sum = torch.zeros(B, device=x.device, dtype=torch.float32)
+
+        # Optionally accumulate activation summaries per layer/action.
         activations: dict = {}
         if return_activations:
             activations = {
-                "layer_0":          torch.zeros(B, device=x.device),
-                "layer_1":          torch.zeros(B, device=x.device),
-                "output":           torch.zeros(B, device=x.device),
+                "layer_0": torch.zeros(B, device=x.device),
+                "layer_1": torch.zeros(B, device=x.device),
+                "output": torch.zeros(B, device=x.device),
                 "output_per_action": torch.zeros(B, out_dim, device=x.device),
             }
             if return_temporal:
                 activations["output_potential_trace"] = []
-                activations["output_spike_trace"]     = []
+                activations["output_spike_trace"] = []
 
         first_spike_time = torch.full(
             (B, out_dim), self.T, dtype=torch.float32, device=x.device
         )
 
         for t in range(self.T):
-            spk1, v1, _          = self.block1.forward_step(spk_in[t], v1)
-            spk2, v2, _          = self.block2.forward_step(spk1, v2)
-            spk_out, vout, iout  = self.block_out.forward_step(spk2, vout)
+            spk1, v1, _ = self.block1.forward_step(spk_in[t], v1)
+            spk2, v2, _ = self.block2.forward_step(spk1, v2)
+            spk_out, vout, iout = self.block_out.forward_step(spk2, vout)
 
             out_counts += spk_out
             iout_accum += iout
 
             spike_mean += spk1.mean() + spk2.mean() + spk_out.mean()
-            spike_sum  += (
-                spk1.sum().item() + spk2.sum().item() + spk_out.sum().item()
-            )
+
+            # Accumulate spikes per environment (once per timestep, reused below).
+            spk1_sum = spk1.sum(dim=-1).float()
+            spk2_sum = spk2.sum(dim=-1).float()
+            spk_out_sum = spk_out.sum(dim=-1).float()
+
+            env_spikes_t = spk1_sum + spk2_sum + spk_out_sum
+            per_env_spike_sum += env_spikes_t
 
             if return_activations:
-                activations["layer_0"]           += spk1.sum(dim=-1).detach()
-                activations["layer_1"]           += spk2.sum(dim=-1).detach()
-                activations["output"]            += spk_out.sum(dim=-1).detach()
+                activations["layer_0"] += spk1_sum.detach()
+                activations["layer_1"] += spk2_sum.detach()
+                activations["output"] += spk_out_sum.detach()
                 activations["output_per_action"] += spk_out.detach()
                 if return_temporal:
                     activations["output_potential_trace"].append(iout.detach())
                     activations["output_spike_trace"].append(spk_out.detach())
 
-            # Track first timestep at which each output neuron fires
+            # Track the first spike time per action for latency statistics.
             just_spiked = (spk_out > 0) & (first_spike_time == self.T)
             first_spike_time[just_spiked] = float(t)
 
-        self._last_reg         = spike_mean / self.T
-        self._last_spike_count = spike_sum
-        self._last_latency     = first_spike_time.mean().item()
+        self._last_reg = spike_mean / self.T
+        self._last_spike_count_total = float(per_env_spike_sum.sum().item())
+        self._last_spike_count_per_env = per_env_spike_sum.detach()
+        self._last_latency = first_spike_time.mean().item()
 
         logits = iout_accum
+
+        # If the output never spikes, fall back to membrane potential as logits.
+        if self.use_potential_fallback:
+            no_output_spike = (out_counts.sum(dim=-1, keepdim=True) == 0)
+            logits = torch.where(no_output_spike, vout, logits)
 
         if self.center_logits:
             logits = logits - logits.mean(dim=-1, keepdim=True)
@@ -189,21 +179,17 @@ class SNNSpikeActor(nn.Module):
 
         return logits, self._last_reg
 
-    # ------------------------------------------------------------------
-
     def regulariser(self):
         return self._last_reg
 
     def last_spike_count(self):
-        return self._last_spike_count
+        return self._last_spike_count_per_env
+
+    def last_spike_count_total(self):
+        return self._last_spike_count_total
 
     def last_latency(self):
         return self._last_latency
-
-    def reset_stats(self):
-        self.block1.reset_stats()
-        self.block2.reset_stats()
-        self.block_out.reset_stats()
 
     def get_spike_stats(self) -> dict:
         """
@@ -221,9 +207,11 @@ class SNNSpikeActor(nn.Module):
             + self.block_out.total_timesteps
         )
 
+        # Each block tracks its own tensor counters; convert them to scalars for reporting.
         if isinstance(total_spikes,    torch.Tensor): total_spikes    = total_spikes.detach().cpu().item()
         if isinstance(total_timesteps, torch.Tensor): total_timesteps = total_timesteps.detach().cpu().item()
 
+        # Average spikes per timestep indicates how active the SNN is; sparsity is its complement.
         firing_rate = (total_spikes / float(total_timesteps)) if total_timesteps > 0 else 0.0
         sparsity    = 1.0 - firing_rate
 

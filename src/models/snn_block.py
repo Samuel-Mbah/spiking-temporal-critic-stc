@@ -9,6 +9,8 @@ class SNNBlock(nn.Module):
     A single layer of an SNN: Linear Transformation -> Leaky Integrate-and-Fire.
     Tracks spike statistics for energy estimation.
     """
+    total_spikes: torch.Tensor
+    total_timesteps: torch.Tensor
     def __init__(self, linear: nn.Linear, lif: snn.Leaky):
         super().__init__()
         self.linear = linear

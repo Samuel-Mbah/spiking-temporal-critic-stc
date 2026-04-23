@@ -14,7 +14,7 @@ instrument_timing: true
 timing_log_interval: 100
 
 experiment_meta:
-  repeats: 1                   # Defer to shell script
+  repeats: 5
   base_seed: 42
   per_repeat_tag: "research"
 
@@ -56,7 +56,8 @@ ppo:
   eval_interval_updates: 10    
   eval_episodes: 20
   solved_window_eval_episodes: 100
-  reward_threshold: -1.5       # Dense FetchReach reward is negative distance. -1.5 is "solved"
+  eval_seed: 42
+  reward_threshold: -1.5
   success_rate_threshold: 95.0
   scale_returns_to_value: false
   print_interval_updates: 10

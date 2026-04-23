@@ -14,7 +14,7 @@ instrument_timing: true
 timing_log_interval: 100
 
 experiment_meta:
-  repeats: 1                   # Defer to shell script
+  repeats: 5
   base_seed: 42
   per_repeat_tag: "research"
 
@@ -39,7 +39,7 @@ logging:
 # PHASE 1: ANN TRAINING (Optimized to prevent overkill on simple T-Maze)
 training:
   rollout_length: 64           # Reduced from 2048. T-Maze episodes are very short (3-6 steps).
-  total_updates: 100           # Reduced from 150. 100 is plenty to solve it.
+  total_updates: 200
   batch_size: 64               # Reduced from 256
   update_epochs: 4             # Reduced from 10 to prevent overfitting
   sticky_action: false
@@ -58,7 +58,8 @@ ppo:
   eval_interval_updates: 10    # Evaluate more frequently due to shorter run
   eval_episodes: 20
   solved_window_eval_episodes: 100
-  reward_threshold: 0.95       # Adjusted for T-Maze's max reward of +1
+  eval_seed: 42
+  reward_threshold: 0.95
   success_rate_threshold: 95.0
   scale_returns_to_value: false
   print_interval_updates: 10

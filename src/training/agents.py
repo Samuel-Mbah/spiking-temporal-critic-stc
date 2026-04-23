@@ -48,7 +48,7 @@ def resolve_actor_critic_params(
     return {
         "actor_T": actor_T or T,
         "critic_T": critic_T or T,
-        "actor_poisson": actor_poisson_encode if actor_poisson_encode is not None else False,
+        "actor_poisson": actor_poisson_encode if actor_poisson_encode is not None else poisson_encode,
         "critic_poisson": critic_poisson_encode if critic_poisson_encode is not None else poisson_encode,
         "actor_rate": actor_rate_scale if actor_rate_scale is not None else rate_scale,
         "critic_rate": critic_rate_scale if critic_rate_scale is not None else rate_scale,
@@ -72,6 +72,7 @@ def build_actor(
     **kwargs,
 ) -> nn.Module:
     """Constructs the Actor network based on the specified type."""
+    # Dispatch between the available actor implementations.
     if actor_type is ActorType.ANN:
         backbone = BackboneNetwork(
             in_features=in_dim,
@@ -87,8 +88,7 @@ def build_actor(
         )
 
     if actor_type is ActorType.SNN_SPIKE:
-        # SNN Actor handles the 'critic_informs_actor' dim expansion internally 
-        # or via config; here we pass the raw input dim + 1 if needed.
+        # SNN actor handles the optional critic concatenation internally.
         effective_in_dim = in_dim + (1 if critic_informs_actor else 0)
         
         return SNNSpikeActor(
@@ -127,6 +127,7 @@ def build_critic(
     **kwargs,
 ) -> nn.Module:
     """Constructs the Critic network based on the specified type."""
+    # Choose the matching critic implementation for the requested type.
     if critic_type is CriticType.ANN:
         backbone = BackboneNetwork(
             in_features=in_dim,
@@ -187,6 +188,7 @@ def make_agent(
     """
     Main entry point to assemble an Actor-Critic agent.
     Applies orthogonal initialization to all created modules.
+    After actor + critic are built, the helper applies a shared initialization wrapper.
     """
     params = resolve_actor_critic_params(T=T, V_th=V_th, **kwargs)
 

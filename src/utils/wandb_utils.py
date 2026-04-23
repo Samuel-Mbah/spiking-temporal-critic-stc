@@ -12,13 +12,8 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional, Union, List
-
-# Conditional Import
-try:
-    import wandb
-except ImportError:
-    wandb = None
+from typing import Any, Dict, Optional, Union, List, Literal
+import wandb
 
 # Configure Logger
 logger = logging.getLogger(__name__)
@@ -36,7 +31,7 @@ def init_wandb(
     name: Optional[str] = None,
     group: Optional[str] = None,
     tags: Optional[List[str]] = None,
-    mode: str = "online",
+    mode: Literal["online", "offline", "disabled", "shared"] = "online",
 ) -> None:
     """
     Safely initializes a WandB run.
@@ -73,8 +68,9 @@ def init_wandb(
             tags=tags,
             config=clean_config,
             mode=mode,
-            reinit=True
+            reinit=True,
         )
+        assert wandb.run is not None
         logger.info(f"WandB initialized: {name} (ID: {wandb.run.id})")
     except Exception as e:
         logger.error(f"Failed to initialize WandB: {e}")
@@ -136,7 +132,6 @@ def finish_wandb() -> None:
     """Cleanly closes the W&B run."""
     if is_active():
         wandb.finish()
-
 
 
 

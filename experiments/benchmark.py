@@ -52,6 +52,12 @@ if repo_root not in sys.path:
 
 from src.tools.energy_benchmark import EnergyBenchmark, sop_from_saved_metrics
 from src.training.agents import make_agent, resolve_cartpole_types
+from src.utils.plotting import (
+    plot_energy_efficiency_comparison,
+    plot_steps_to_solve_comparison,
+    plot_sparsity_breakdown,
+)
+from src.utils.metrics import load_training_data
 from src.training.envs import make_envs, VecNormalize, set_global_seeds
 from src.training.evaluate import evaluate_snn
 from src.utils.checkpoint import load_checkpoint
@@ -186,6 +192,13 @@ def main():
                         help="AC energy constant in pJ (default: 0.9, Horowitz 2014)")
     parser.add_argument("--sop-e-mac-pj",  type=float, default=4.6,
                         help="MAC energy constant in pJ (default: 4.6, Horowitz 2014)")
+    # Training log dirs for steps-to-solve plot (optional; can be multi-seed glob patterns)
+    parser.add_argument("--ann-log-dirs",  type=str, nargs="+", default=None,
+                        help="One or more ANN training log dirs containing per_episode_metrics.csv")
+    parser.add_argument("--snn-log-dirs",  type=str, nargs="+", default=None,
+                        help="One or more SNN training log dirs containing per_episode_metrics.csv")
+    parser.add_argument("--reward-threshold", type=float, default=None,
+                        help="Reward threshold for 'solved' (inferred from config if omitted)")
     args = parser.parse_args()
 
     # Require at least one model
@@ -282,15 +295,75 @@ def main():
             f.write(report)
         logger.info(f"Combined report saved to {report_path}")
 
-    elif ann_metrics is not None:
+        plot_energy_efficiency_comparison(
+            ann_metrics=dataclasses.asdict(ann_metrics),
+            snn_metrics=dataclasses.asdict(snn_metrics),
+            save_path=os.path.join(args.output_dir, "energy_comparison.png"),
+            env_name=snn_config.get("env", {}).get("id", "Unknown"),
+            ann_label="ANN Baseline",
+            snn_label="SNN Timing Critic",
+        )
+        logger.info(f"Saved comparison plot: {args.output_dir}/energy_comparison.png")
+
+        plot_sparsity_breakdown(
+            snn_metrics=dataclasses.asdict(snn_metrics),
+            ann_metrics=dataclasses.asdict(ann_metrics),
+            save_path=os.path.join(args.output_dir, "sparsity_breakdown.png"),
+            env_name=snn_config.get("env", {}).get("id", "Unknown"),
+            ann_label="ANN Baseline",
+            snn_label="SNN Timing Critic",
+        )
+        logger.info(f"Saved sparsity plot: {args.output_dir}/sparsity_breakdown.png")
+
+    # ------------------------------------------------------------------
+    # Steps-to-solve plot (requires --ann-log-dirs / --snn-log-dirs)
+    # ------------------------------------------------------------------
+    if args.ann_log_dirs or args.snn_log_dirs:
+        active_config = snn_config if args.snn_checkpoint else ann_config
+        threshold = args.reward_threshold or active_config.get("ppo", {}).get("reward_threshold", 475.0)
+        env_id = active_config.get("env", {}).get("id", "Unknown")
+
+        def _load_dfs(dirs):
+            dfs = []
+            for d in (dirs or []):
+                try:
+                    _, per_ep = load_training_data(d)
+                    if not per_ep.empty:
+                        dfs.append(per_ep)
+                    else:
+                        logger.warning(f"Empty per_episode_metrics.csv in {d!r}, skipping.")
+                except Exception as e:
+                    logger.warning(f"Could not load log dir {d!r}: {e}")
+            return dfs
+
+        ann_dfs = _load_dfs(args.ann_log_dirs)
+        snn_dfs = _load_dfs(args.snn_log_dirs)
+
+        if ann_dfs or snn_dfs:
+            plot_steps_to_solve_comparison(
+                ann_dfs=ann_dfs or [next(iter(snn_dfs))],  # fallback keeps function happy
+                snn_dfs=snn_dfs or [next(iter(ann_dfs))],
+                save_path=os.path.join(args.output_dir, "steps_to_solve.png"),
+                reward_threshold=float(threshold),
+                env_name=env_id,
+                ann_label="ANN Baseline",
+                snn_label="SNN Timing Critic",
+            )
+            logger.info(f"Saved steps-to-solve plot: {args.output_dir}/steps_to_solve.png")
+        else:
+            logger.warning("--ann-log-dirs / --snn-log-dirs provided but no valid CSVs found.")
+
+    # Solo-model summary logs (independent of the steps-to-solve block above)
+    if ann_metrics is None and snn_metrics is None:
+        pass
+    elif ann_metrics is not None and snn_metrics is None:
         logger.info(
             f"\nANN-only benchmark complete.\n"
             f"  Total GPU J    : {ann_metrics.total_energy_joules:.4f}\n"
             f"  Avg power (W)  : {ann_metrics.avg_power_watts:.3f}\n"
             f"  J / env-step   : {ann_metrics.raw_joules_per_env_step:.6f}\n"
         )
-
-    elif snn_metrics is not None:
+    elif snn_metrics is not None and ann_metrics is None:
         sop = snn_metrics.sop
         sop_line = sop.summary() if sop else "SOP: N/A (no spikes recorded)"
         logger.info(
@@ -300,6 +373,13 @@ def main():
             f"  Sparsity       : {snn_metrics.sparsity_factor:.2%}\n"
             f"  {sop_line}\n"
         )
+        plot_sparsity_breakdown(
+            snn_metrics=dataclasses.asdict(snn_metrics),
+            save_path=os.path.join(args.output_dir, "sparsity_breakdown.png"),
+            env_name=snn_config.get("env", {}).get("id", "Unknown"),
+            snn_label="SNN Timing Critic",
+        )
+        logger.info(f"Saved sparsity plot: {args.output_dir}/sparsity_breakdown.png")
 
     logger.info("Done.")
 
