@@ -564,6 +564,10 @@ def calculate_and_save_metrics_csv(
     eval_episode_length_padded = _align_values_to_train_timeline(eval_episode_length, eval_steps, train_steps, n)
 
     if np.all(np.isnan(test_rewards_padded)):
+        logger.warning(
+            "All eval rewards are NaN — substituting training rewards in metrics CSV. "
+            "Check that eval logging is running correctly."
+        )
         test_rewards_padded = pad_to_len(train_rewards, n)
 
     cum_train = cumulative(train_rewards)

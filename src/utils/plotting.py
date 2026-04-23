@@ -662,6 +662,8 @@ def plot_eval_return_vs_steps(
     ax1.plot(steps, eval_reward, "o-", lw=2.5, markersize=7, color=color_rw, label="Evaluation Return")
 
     # 4. Annotate Peak Performance
+    _n = min(len(steps), len(eval_reward))
+    steps, eval_reward = steps[:_n], eval_reward[:_n]
     max_idx = np.argmax(eval_reward)
     ax1.plot(steps[max_idx], eval_reward[max_idx], marker='*', color='gold', markersize=15, markeredgecolor='black', zorder=10)
     ax1.annotate(f'Peak Eval: {eval_reward[max_idx]:.2f}', 

@@ -119,6 +119,15 @@ def estimate_synaptic_connections(model: nn.Module) -> int:
     return n
 
 
+def count_neurons(model: nn.Module) -> int:
+    """Total output neurons across all Linear layers (neurons that receive synaptic input).
+
+    Used to compute avg_fan_in = n_synapses / n_neurons for the SNN SOP formula.
+    Each spike activates only the fan-in of its target neuron, not all synapses.
+    """
+    return sum(m.out_features for m in model.modules() if isinstance(m, nn.Linear))
+
+
 # =======================================================================
 #  PART 1: LOW-LEVEL GPU ENERGY METER
 # =======================================================================
@@ -223,8 +232,9 @@ def compute_sop_energy(
     spike_count:     float,
     n_synapses:      int,
     ann_activations: float,
-    e_ac_pJ:  float = E_AC_PJ,
-    e_mac_pJ: float = E_MAC_PJ,
+    e_ac_pJ:   float = E_AC_PJ,
+    e_mac_pJ:  float = E_MAC_PJ,
+    avg_fan_in: Optional[float] = None,
 ) -> SOPEnergyResult:
     """
     Theoretical energy estimate using the Synaptic Operation (SOP) model.
@@ -239,23 +249,30 @@ def compute_sop_energy(
         Total spike events fired across all SNN layers over the measured
         rollout.  Obtained from `get_cumulative_spikes()`.
     n_synapses : int
-        Number of synaptic connections (weight elements) in the model.
-        Obtained from `estimate_synaptic_connections()`.
+        Total synaptic connections (weight elements) in the model.
+        Used as-is for the ANN energy baseline (each connection does one MAC per step).
     ann_activations : float
-        Total non-zero neuron activations in the ANN equivalent over the
-        same rollout.  If unknown, use `n_synapses * n_inference_steps` as
-        a conservative upper bound.
+        Total inference steps for the ANN equivalent (= total_env_steps).
+        ann_pJ = ann_activations × n_synapses × e_mac_pJ.
     e_ac_pJ : float
         Energy per accumulate operation in pJ.  Default 0.9 pJ (Horowitz 2014).
     e_mac_pJ : float
         Energy per multiply-accumulate operation in pJ.  Default 4.6 pJ.
+    avg_fan_in : float, optional
+        Average fan-in per neuron = n_synapses / n_neurons.
+        Each spike activates avg_fan_in AC operations, not all n_synapses.
+        Obtain via ``count_neurons(model)`` then ``n_synapses / n_neurons``.
+        If None, falls back to n_synapses (old behaviour — overcounts SNN energy).
 
     Returns
     -------
     SOPEnergyResult
     """
-    snn_pJ = spike_count      * n_synapses * e_ac_pJ
-    ann_pJ = ann_activations  * n_synapses * e_mac_pJ
+    # Each SNN spike triggers avg_fan_in AC ops (one per incoming connection of
+    # the receiving neuron), NOT n_synapses ops across the whole network.
+    _fan_in = avg_fan_in if avg_fan_in is not None else n_synapses
+    snn_pJ  = spike_count     * _fan_in    * e_ac_pJ
+    ann_pJ  = ann_activations * n_synapses * e_mac_pJ
     speedup = (ann_pJ / snn_pJ) if snn_pJ > 0 else 0.0
 
     return SOPEnergyResult(
@@ -515,28 +532,33 @@ class EnergyBenchmark:
                 avg_sparsity = float(np.mean(valid_sparsities))
 
             if total_spikes > 0 and n_synapses > 0:
-                # ANN equivalent activations: every synapse fires every env step
-                # (conservative upper bound — no ReLU dead-neuron discount)
-                ann_activations = float(total_env_steps)
+                # Each spike triggers avg_fan_in AC ops, not all n_synapses.
+                # avg_fan_in = n_synapses / n_neurons (total weights / receiving neurons).
+                _n_neurons  = count_neurons(model)
+                _avg_fan_in = n_synapses / _n_neurons if _n_neurons > 0 else float(n_synapses)
                 sop_result = compute_sop_energy(
                     spike_count=total_spikes,
                     n_synapses=n_synapses,
-                    ann_activations=ann_activations,
+                    ann_activations=float(total_env_steps),
                     e_ac_pJ=sop_e_ac_pJ,
                     e_mac_pJ=sop_e_mac_pJ,
+                    avg_fan_in=_avg_fan_in,
                 )
 
         else:
-            # ANN SOP baseline: every neuron fires a MAC every env step.
+            # ANN SOP baseline: every weight connection does one MAC per env step.
             # spike_count=0 → snn_theoretical_pJ=0; ann_theoretical_pJ is the
             # reference energy used as the denominator in the SNN speedup claim.
             if n_synapses > 0 and total_env_steps > 0:
+                _n_neurons  = count_neurons(model)
+                _avg_fan_in = n_synapses / _n_neurons if _n_neurons > 0 else float(n_synapses)
                 sop_result = compute_sop_energy(
                     spike_count=0.0,
                     n_synapses=n_synapses,
                     ann_activations=float(total_env_steps),
                     e_ac_pJ=sop_e_ac_pJ,
                     e_mac_pJ=sop_e_mac_pJ,
+                    avg_fan_in=_avg_fan_in,
                 )
 
         return EnergyMetrics(

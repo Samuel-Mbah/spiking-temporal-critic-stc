@@ -393,7 +393,13 @@ def run_surrogate(config: Dict[str, Any]) -> Dict[str, Any]:
 
                 if len(test_rewards) >= window_size:
                     rolling_avg = float(np.mean(test_rewards[-window_size:]))
-                    is_solved   = (rolling_avg >= reward_threshold) and (success_rate >= success_rate_threshold)
+                    # Use the same rolling window for success-rate check so both
+                    # conditions cover identical episodes (avoids single noisy eval
+                    # blocking "solved" when the policy has been reliable for 100 eps).
+                    window_success_rate = float(
+                        np.mean(np.asarray(test_rewards[-window_size:]) >= reward_threshold) * 100.0
+                    )
+                    is_solved = (rolling_avg >= reward_threshold) and (window_success_rate >= success_rate_threshold)
                 else:
                     rolling_avg = float(np.mean(test_rewards))
                     is_solved   = False

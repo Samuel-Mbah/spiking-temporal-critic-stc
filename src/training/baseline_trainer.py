@@ -337,7 +337,10 @@ def run_baseline(config: Dict[str, Any]) -> Dict[str, Any]:
 
                 if len(test_rewards) >= window_size:
                     rolling_avg = np.mean(test_rewards[-window_size:])
-                    is_solved   = (rolling_avg >= reward_threshold) and (success_rate >= success_rate_threshold)
+                    window_success_rate = float(
+                        np.mean(np.asarray(test_rewards[-window_size:]) >= reward_threshold) * 100.0
+                    )
+                    is_solved = (rolling_avg >= reward_threshold) and (window_success_rate >= success_rate_threshold)
                 else:
                     rolling_avg = np.mean(test_rewards)
                     is_solved   = False
