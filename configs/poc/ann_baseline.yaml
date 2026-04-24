@@ -5,13 +5,13 @@
 
 run_name: "ANN_POC_NeurIPS"
 project_name: "poc-snn-neurips"
-log_dir: "results/logs/neurips/poc/ann"
-plots_dir: "results/plots/neurips/poc/ann"
-video_dir: "results/videos/neurips/poc/ann"
-wandb_dir: "results/wandb/neurips/poc/ann"
+log_dir: "results/NeurIPS/logs/poc/ann"
+plots_dir: "results/NeurIPS/plots/poc/ann"
+video_dir: "results/NeurIPS/videos/poc/ann"
+wandb_dir: "results/NeurIPS/wandb/poc/ann"
 
 save_ckpt: true
-device: "cuda"         # change to "cpu" if GPU unavailable
+device: "cuda" # change to "cpu" if GPU unavailable
 env_seed: 42
 instrument_timing: true
 timing_log_interval: 100
@@ -25,17 +25,17 @@ experiment_meta:
 # ENVIRONMENT
 env:
   id: "CartPole-v1"
-  n_envs: 8                    # 8 envs * 2048 steps = 16,384 steps per update
+  n_envs: 8 # 8 envs * 2048 steps = 16,384 steps per update
   vec_normalize: false
   max_episode_steps: 500
   partial_obs:
-    indices: [0,2]            # position + angle only (hide velocity terms)
-  frame_stack: 4              # stack frames to compensate partial observability
-  frame_stack_flatten: true    # flatten stacked frames for MLP input
+    indices: [0, 2] # position + angle only (hide velocity terms)
+  frame_stack: 4 # stack frames to compensate partial observability
+  frame_stack_flatten: true # flatten stacked frames for MLP input
 
 # LOGGING
 logging:
-  checkpoint_interval_updates: 100  # Save checkpoints every ~1.6M steps
+  checkpoint_interval_updates: 100 # Save checkpoints every ~1.6M steps
   save_last_checkpoint: true
   logger_collect_spikes: false
   activations_probe_interval: 100
@@ -43,8 +43,8 @@ logging:
 
 # TRAINING (Aligned for ~8.19M Steps with partial observability + frame stack)
 training:
-  rollout_length: 2048        # Large buffer for stable gradients
-  total_updates: 500          # 500 updates * 16,384 steps = ~8.19M total steps
+  rollout_length: 2048 # Large buffer for stable gradients
+  total_updates: 500 # 500 updates * 16,384 steps = ~8.19M total steps
   batch_size: 256
   update_epochs: 10
   sticky_action: false
@@ -62,10 +62,10 @@ ppo:
   max_grad_norm: 0.5
   target_kl: 0.015
   print_interval_updates: 20
-  eval_interval_updates: 20     # Eval less frequently for speed
-  eval_episodes: 20             # Higher sample size for reliable stats
+  eval_interval_updates: 20 # Eval less frequently for speed
+  eval_episodes: 20 # Higher sample size for reliable stats
   solved_window_eval_episodes: 100
-  eval_seed: 42                 # Deterministic eval seed base (per-episode offset)
+  eval_seed: 42 # Deterministic eval seed base (per-episode offset)
   reward_threshold: 475.0
   success_rate_threshold: 95.0
   scale_returns_to_value: false
@@ -77,7 +77,7 @@ model:
   hidden_dim: 64
   dropout: 0.0
   critic_informs_actor: false
-  in_features: 8               # 2 obs dims * 4 frame stack
+  in_features: 8 # 2 obs dims * 4 frame stack
 
 # BENCHMARKING
 benchmark:

@@ -1,14 +1,13 @@
-
 # Research-grade SNN Actor + SNN Timing Critic for partially observable CartPole
 # - Fair comparison: aligned with POC baseline and frame stack
 # - Long-run config: see total_updates for actual step count
 
 run_name: "SNN_TimingCritic_POC_NeurIPS"
 project_name: "poc-snn-neurips"
-log_dir: "results/logs/neurips/poc/snn_timing_critic"
-plots_dir: "results/plots/neurips/poc/snn_timing_critic"
-video_dir: "results/videos/neurips/poc/snn_timing_critic"
-wandb_dir: "results/wandb/neurips/poc/snn_timing_critic"
+log_dir: "results/NeurIPS/logs/poc/snn_timing_critic"
+plots_dir: "results/NeurIPS/plots/poc/snn_timing_critic"
+video_dir: "results/NeurIPS/videos/poc/snn_timing_critic"
+wandb_dir: "results/NeurIPS/wandb/poc/snn_timing_critic"
 
 save_ckpt: true
 device: "cuda"
@@ -24,12 +23,12 @@ experiment_meta:
 env:
   id: "CartPole-v1"
   n_envs: 8
-  vec_normalize: false         # Often better false for direct SNN inputs
+  vec_normalize: false # Often better false for direct SNN inputs
   max_episode_steps: 500
-  partial_obs: 
-    indices: [0,2]            # position + angle only (hide velocity terms)
-  frame_stack: 4              # stack frames to compensate partial observability
-  frame_stack_flatten: true    # flatten stacked frames for MLP input
+  partial_obs:
+    indices: [0, 2] # position + angle only (hide velocity terms)
+  frame_stack: 4 # stack frames to compensate partial observability
+  frame_stack_flatten: true # flatten stacked frames for MLP input
 
 logging:
   checkpoint_interval_updates: 100
@@ -41,18 +40,18 @@ logging:
 # TRAINING (POC + frame stack)
 training:
   shuffle_minibatches: false
-  rollout_length: 2048        # Large buffer
-  total_updates: 500          # 500 updates * 16,384 steps = ~8.19M total steps
-  batch_size: 256            # Increased from 64 for stability
-  update_epochs: 10           # Increased from 4
+  rollout_length: 2048 # Large buffer
+  total_updates: 500 # 500 updates * 16,384 steps = ~8.19M total steps
+  batch_size: 256 # Increased from 64 for stability
+  update_epochs: 10 # Increased from 4
   sticky_action: false
   no_action_cfg: null
 
 ppo:
-  lr: 0.0003                  # Lower LR often needed for SNN stability
+  lr: 0.0003 # Lower LR often needed for SNN stability
   gamma: 0.99
   lam: 0.95
-  clip_eps: 0.1              # Stricter clipping for SNN
+  clip_eps: 0.1 # Stricter clipping for SNN
   clip_range_vf: null
   entropy_coef: 0.01
   value_coef: 0.5
@@ -60,7 +59,7 @@ ppo:
   target_kl: 0.02
   print_interval_updates: 20
   eval_interval_updates: 20
-  eval_episodes: 20           # Robust stats
+  eval_episodes: 20 # Robust stats
   solved_window_eval_episodes: 100
   eval_seed: 42
   reward_threshold: 475.0
@@ -71,7 +70,7 @@ model:
   mode: "snn_actor_snn_timing_critic"
   hidden_dim: 64
   dropout: 0.2
-  in_features: 8               # 2 obs dims * 4 frame stack
+  in_features: 8 # 2 obs dims * 4 frame stack
   critic_informs_actor: false
   actor_critic_normalize: true
 
@@ -104,16 +103,15 @@ snn:
   critic_use_hard_no_spike: true
 
   # Reward Mapping (Temporal Value Encoding)
-  Rmax: 500.0           # Value if spike happens immediately (t=0)
-  Rmin: 0.0             # Value if spike happens at t=critic_T (or never)
-
+  Rmax: 500.0 # Value if spike happens immediately (t=0)
+  Rmin: 0.0 # Value if spike happens at t=critic_T (or never)
 
 # BENCHMARKING
 benchmark:
-  measure_inference_energy: true  
-  energy_runs_per_measure: 5      
-  run_for_ann: true               
-  num_episodes_for_benchmark: 50 
+  measure_inference_energy: true
+  energy_runs_per_measure: 5
+  run_for_ann: true
+  num_episodes_for_benchmark: 50
 
 spike_reg:
   lambda_spike: 0.0002

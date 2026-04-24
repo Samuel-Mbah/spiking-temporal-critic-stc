@@ -2,10 +2,10 @@
 
 run_name: "ANN2SNN_Actor_POC_NeurIPS"
 project_name: "poc-snn-neurips"
-log_dir: "results/logs/neurips/poc/ann2snn_actor"
-plots_dir: "results/plots/neurips/poc/ann2snn_actor"
-video_dir: "results/videos/neurips/poc/ann2snn_actor"
-wandb_dir: "results/wandb/neurips/poc/ann2snn_actor"
+log_dir: "results/NeurIPS/logs/poc/ann2snn_actor"
+plots_dir: "results/NeurIPS/plots/poc/ann2snn_actor"
+video_dir: "results/NeurIPS/videos/poc/ann2snn_actor"
+wandb_dir: "results/NeurIPS/wandb/poc/ann2snn_actor"
 
 save_ckpt: true
 device: "cuda"
@@ -23,10 +23,10 @@ env:
   n_envs: 8
   vec_normalize: false
   max_episode_steps: 500
-  partial_obs: 
-    indices: [0,2]        # position + angle only (hide velocity terms)
-  frame_stack: 4              # stack frames to compensate partial observability
-  frame_stack_flatten: true    # flatten stacked frames for MLP input
+  partial_obs:
+    indices: [0, 2] # position + angle only (hide velocity terms)
+  frame_stack: 4 # stack frames to compensate partial observability
+  frame_stack_flatten: true # flatten stacked frames for MLP input
 
 logging:
   checkpoint_interval_updates: 100
@@ -37,8 +37,8 @@ logging:
 
 # PHASE 1: ANN TRAINING (POC + frame stack)
 training:
-  rollout_length: 2048        # Large buffer for stable gradients
-  total_updates: 500          # 500 updates * 16,384 steps = ~8.19M total steps
+  rollout_length: 2048 # Large buffer for stable gradients
+  total_updates: 500 # 500 updates * 16,384 steps = ~8.19M total steps
   batch_size: 256
   update_epochs: 10
   sticky_action: false
@@ -69,7 +69,7 @@ model:
   hidden_dim: 64
   dropout: 0.0
   critic_informs_actor: false
-  in_features: 8            # 2 obs dims * 4 frame stack
+  in_features: 8 # 2 obs dims * 4 frame stack
 
 # PHASE 2: CONVERSION
 snn_convert:
