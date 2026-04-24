@@ -179,6 +179,11 @@ class SNNSpikeActor(nn.Module):
 
         return logits, self._last_reg
 
+    def forward(self, x: torch.Tensor, **kwargs) -> torch.Tensor:
+        """Standard PyTorch forward — delegates to forward_T, returns logits only."""
+        logits, _ = self.forward_T(x, **kwargs)
+        return logits
+
     def regulariser(self):
         return self._last_reg
 
