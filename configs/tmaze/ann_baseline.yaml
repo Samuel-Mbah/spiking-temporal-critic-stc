@@ -1,12 +1,12 @@
 run_name: "ANN_TMaze_Passive_NeurIPS"
 project_name: "tmaze-snn-neurips"
-log_dir: "results/logs/neurips/tmaze_passive/ann"
-plots_dir: "results/plots/neurips/tmaze_passive/ann"
-video_dir: "results/videos/neurips/tmaze_passive/ann"
-wandb_dir: "results/wandb/neurips/tmaze_passive/ann"
+log_dir: "results/NeurIPS/logs/tmaze_passive/ann"
+plots_dir: "results/NeurIPS/plots/tmaze_passive/ann"
+video_dir: "results/NeurIPS/videos/tmaze_passive/ann"
+wandb_dir: "results/NeurIPS/wandb/tmaze_passive/ann"
 
 save_ckpt: true
-device: "cuda"         # or "cpu"
+device: "cuda" # or "cpu"
 env_seed: 42
 instrument_timing: true
 timing_log_interval: 100
@@ -17,14 +17,14 @@ experiment_meta:
   per_repeat_tag: "tmaze"
 
 env:
-  id: "tmaze-v0"       
-  kwargs: 
+  id: "tmaze-v0"
+  kwargs:
     active: false # Passive T-Maze default; override to true for active runs
     length: 3
   n_envs: 8
   vec_normalize: false # Usually false for discrete gridworlds with sparse rewards
   max_episode_steps: 100 # Short horizon for T-Maze
-  frame_stack: 4      # Helpful for memory in T-Maze
+  frame_stack: 4 # Helpful for memory in T-Maze
   frame_stack_flatten: true
 
 logging:
@@ -36,8 +36,8 @@ logging:
 
 training:
   shuffle_minibatches: false
-  rollout_length: 64  # Shorter rollouts for gridworld
-  total_updates: 200  # I want to allow 1M steps (1000 updates * 512 steps)
+  rollout_length: 64 # Shorter rollouts for gridworld
+  total_updates: 200 # I want to allow 1M steps (1000 updates * 512 steps)
   batch_size: 64
   update_epochs: 4
   sticky_action: false
@@ -63,16 +63,16 @@ ppo:
 # Post-training/post-conversion validation trace collection budget + protocol.
 # Used by surrogate/conversion validation-data collection.
 post_eval:
-  n_eval_steps: 512        # Standardized across T-Maze experiments
-  n_eval_episodes: null    # Set to integer to cap by episodes
-  deterministic: true      # true=argmax policy, false=sample policy
-  max_episode_steps: 100   # Align with T-Maze max episode steps
+  n_eval_steps: 512 # Standardized across T-Maze experiments
+  n_eval_episodes: null # Set to integer to cap by episodes
+  deterministic: true # true=argmax policy, false=sample policy
+  max_episode_steps: 100 # Align with T-Maze max episode steps
 
 model:
-  mode: "ann"  # "ann", "ann_recurrent", "snn_actor_ann_critic", "snn_actor_snn_critic"
+  mode: "ann" # "ann", "ann_recurrent", "snn_actor_ann_critic", "snn_actor_snn_critic"
   hidden_dim: 128
   dropout: 0.2
-  in_features: 16      # 4 (obs size) * 4 (frame stack)
+  in_features: 16 # 4 (obs size) * 4 (frame stack)
 
 benchmark:
   run_for_ann: false

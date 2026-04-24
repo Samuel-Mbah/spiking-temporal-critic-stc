@@ -1,10 +1,10 @@
 # Research-grade SNN Actor + ANN Critic for T-Maze (Passive, Length 3)
 run_name: "SNN_ANN_Critic_TMaze_Passive_NeurIPS"
 project_name: "tmaze-snn-neurips"
-log_dir: "results/logs/neurips/tmaze_passive/snn_ann_critic"
-plots_dir: "results/plots/neurips/tmaze_passive/snn_ann_critic"
-video_dir: "results/videos/neurips/tmaze_passive/snn_ann_critic"
-wandb_dir: "results/wandb/neurips/tmaze_passive/snn_ann_critic"
+log_dir: "results/NeurIPS/logs/tmaze_passive/snn_ann_critic"
+plots_dir: "results/NeurIPS/plots/tmaze_passive/snn_ann_critic"
+video_dir: "results/NeurIPS/videos/tmaze_passive/snn_ann_critic"
+wandb_dir: "results/NeurIPS/wandb/tmaze_passive/snn_ann_critic"
 
 save_ckpt: true
 device: "cuda"
@@ -23,10 +23,10 @@ env:
     active: false # Passive T-Maze default; override to true for active runs
     length: 3
   n_envs: 8
-  vec_normalize: false         # False for direct discrete grid inputs
+  vec_normalize: false # False for direct discrete grid inputs
   max_episode_steps: 100
-  frame_stack: 4               # Stack frames to compensate for partial observability
-  frame_stack_flatten: true    # Flatten stacked frames for MLP/SNN input
+  frame_stack: 4 # Stack frames to compensate for partial observability
+  frame_stack_flatten: true # Flatten stacked frames for MLP/SNN input
 
 logging:
   checkpoint_interval_updates: 10
@@ -37,10 +37,10 @@ logging:
 
 # TRAINING (Optimized to prevent overkill on simple T-Maze)
 training:
-  rollout_length: 64           # Reduced from 2048. T-Maze episodes are very short.
+  rollout_length: 64 # Reduced from 2048. T-Maze episodes are very short.
   total_updates: 200
-  batch_size: 64               # Reduced from 256
-  update_epochs: 4             # Reduced from 10 to prevent overfitting
+  batch_size: 64 # Reduced from 256
+  update_epochs: 4 # Reduced from 10 to prevent overfitting
   sticky_action: false
   no_action_cfg: null
 
@@ -50,14 +50,14 @@ ppo:
   lam: 0.95
   clip_eps: 0.2
   clip_range_vf: null
-  entropy_coef: 0.05           # Enough to encourage exploration in T-Maze
-  value_coef: 0.5 
+  entropy_coef: 0.05 # Enough to encourage exploration in T-Maze
+  value_coef: 0.5
   max_grad_norm: 0.5
-  target_kl: 0.015  
+  target_kl: 0.015
   kl_coef: 0.02
   print_interval_updates: 10
-  eval_interval_updates: 10    # Evaluate more frequently
-  eval_episodes: 20           
+  eval_interval_updates: 10 # Evaluate more frequently
+  eval_episodes: 20
   solved_window_eval_episodes: 100
   eval_seed: 42
   reward_threshold: 0.95
@@ -68,17 +68,17 @@ model:
   mode: "snn_actor_ann_critic"
   hidden_dim: 128
   dropout: 0.2
-  in_features: 16              # CRITICAL: 4 (obs size) * 4 (frame stack) = 16
+  in_features: 16 # CRITICAL: 4 (obs size) * 4 (frame stack) = 16
   critic_informs_actor: false
 
 # SNN CONFIGURATION
 snn:
-  T: 16                        # Bumped to 16 to match the actor_T of your successful run
+  T: 16 # Bumped to 16 to match the actor_T of your successful run
   beta: 0.95
-  V_th: 0.6                    # Bumped down to 0.6 to match actor_V_th of successful run
+  V_th: 0.6 # Bumped down to 0.6 to match actor_V_th of successful run
   poisson_encode: false
   rate_scale: 1.0
-  actor_surrogate_slope: 5.0   # Matches successful run
+  actor_surrogate_slope: 5.0 # Matches successful run
   actor_logit_temp: 1.0
   center_logits: true
 

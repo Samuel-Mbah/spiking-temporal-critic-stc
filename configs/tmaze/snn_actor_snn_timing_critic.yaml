@@ -1,10 +1,10 @@
-# Research-grade SNN Actor + SNN Timing Critic for T-Maze 
+# Research-grade SNN Actor + SNN Timing Critic for T-Maze
 run_name: "SNN_TimingCritic_TMaze_Passive_NeurIPS"
 project_name: "tmaze-snn-neurips"
-log_dir: "results/logs/neurips/tmaze_passive/snn_timing_critic"
-plots_dir: "results/plots/neurips/tmaze_passive/snn_timing_critic"
-video_dir: "results/videos/neurips/tmaze_passive/snn_timing_critic"
-wandb_dir: "results/wandb/neurips/tmaze_passive/snn_timing_critic"
+log_dir: "results/NeurIPS/logs/tmaze_passive/snn_timing_critic"
+plots_dir: "results/NeurIPS/plots/tmaze_passive/snn_timing_critic"
+video_dir: "results/NeurIPS/videos/tmaze_passive/snn_timing_critic"
+wandb_dir: "results/NeurIPS/wandb/tmaze_passive/snn_timing_critic"
 
 save_ckpt: true
 device: "cuda"
@@ -19,14 +19,14 @@ experiment_meta:
 
 env:
   id: "tmaze-v0"
-  kwargs: 
+  kwargs:
     active: false # Passive T-Maze default; override to true for active runs
     length: 3
   n_envs: 8
-  vec_normalize: false         
+  vec_normalize: false
   max_episode_steps: 100
-  frame_stack: 4              # stack frames to compensate partial observability
-  frame_stack_flatten: true    # flatten stacked frames for MLP/SNN input
+  frame_stack: 4 # stack frames to compensate partial observability
+  frame_stack_flatten: true # flatten stacked frames for MLP/SNN input
 
 logging:
   checkpoint_interval_updates: 10
@@ -37,27 +37,27 @@ logging:
 
 # TRAINING (Optimized to prevent overkill on simple T-Maze)
 training:
-  rollout_length: 64          # Reduced from 2048. T-Maze episodes are very short (3-6 steps).
+  rollout_length: 64 # Reduced from 2048. T-Maze episodes are very short (3-6 steps).
   total_updates: 200
-  batch_size: 64              # Reduced from 256
-  update_epochs: 4            # Reduced from 10 to prevent overfitting
+  batch_size: 64 # Reduced from 256
+  update_epochs: 4 # Reduced from 10 to prevent overfitting
   sticky_action: false
   no_action_cfg: null
 
 ppo:
-  lr: 0.0003                  # Lower policy LR to reduce aggressive PPO updates
+  lr: 0.0003 # Lower policy LR to reduce aggressive PPO updates
   gamma: 0.99
   lam: 0.95
-  clip_eps: 0.2              # Slightly tighter PPO clipping
-  clip_range_vf: null          # Enable value clipping for critic stability
+  clip_eps: 0.2 # Slightly tighter PPO clipping
+  clip_range_vf: null # Enable value clipping for critic stability
   entropy_coef: 0.05
-  value_coef: 0.5             # Reduce critic-loss dominance
+  value_coef: 0.5 # Reduce critic-loss dominance
   max_grad_norm: 0.5
-  target_kl: 0.015            # Tighter KL early-stop threshold
-  kl_coef: 0.02               # Soft KL penalty once KL exceeds target
+  target_kl: 0.015 # Tighter KL early-stop threshold
+  kl_coef: 0.02 # Soft KL penalty once KL exceeds target
   print_interval_updates: 10
-  eval_interval_updates: 10   # Evaluate more frequently
-  eval_episodes: 20           
+  eval_interval_updates: 10 # Evaluate more frequently
+  eval_episodes: 20
   solved_window_eval_episodes: 100
   eval_seed: 42
   reward_threshold: 0.95
@@ -69,7 +69,7 @@ model:
   mode: "snn_actor_snn_timing_critic"
   hidden_dim: 128
   dropout: 0.2
-  in_features: 16              # CRITICAL: 4 (obs size) * 4 (frame stack) = 16
+  in_features: 16 # CRITICAL: 4 (obs size) * 4 (frame stack) = 16
   critic_informs_actor: false
   actor_critic_normalize: true
 
@@ -83,7 +83,7 @@ snn:
 
   # Actor
   actor_T: 16
-  actor_V_th: 0.6 
+  actor_V_th: 0.6
   actor_surrogate_slope: 5.0
   actor_logit_temp: 1.0
   actor_poisson_encode: false
@@ -91,27 +91,26 @@ snn:
 
   # Critic
   critic_T: 32
-  critic_V_th: 1.0 
+  critic_V_th: 1.0
   critic_rate_scale: 5.0
-  critic_spike_temp: 5.0 
+  critic_spike_temp: 5.0
   critic_poisson_encode: false
 
   # surrogate gradient parameters for critic timing
-  critic_cosh_alpha: 2.0  
+  critic_cosh_alpha: 2.0
   critic_cosh_beta: 1.0
   critic_use_hard_no_spike: false
 
   # Reward Mapping (Temporal Value Encoding) - CRITICAL FIX FOR T-MAZE
-  Rmax: 1.0           # T-Maze success yields +1.0
-  Rmin: -1.0          # T-Maze failure yields -1.0
-
+  Rmax: 1.0 # T-Maze success yields +1.0
+  Rmin: -1.0 # T-Maze failure yields -1.0
 
 # BENCHMARKING
 benchmark:
-  measure_inference_energy: false  
-  energy_runs_per_measure: 5      
-  run_for_ann: false              # Since this is an SNN run
-  num_episodes_for_benchmark: 50 
+  measure_inference_energy: false
+  energy_runs_per_measure: 5
+  run_for_ann: false # Since this is an SNN run
+  num_episodes_for_benchmark: 50
 
 spike_reg:
   lambda_spike: 0.001

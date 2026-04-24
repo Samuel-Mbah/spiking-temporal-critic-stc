@@ -4,10 +4,10 @@
 
 run_name: "ANN2SNN_Full_TMaze_Passive_NeurIPS"
 project_name: "tmaze-snn-neurips"
-log_dir: "results/logs/neurips/tmaze_passive/ann2snn_both"
-plots_dir: "results/plots/neurips/tmaze_passive/ann2snn_both"
-video_dir: "results/videos/neurips/tmaze_passive/ann2snn_both"
-wandb_dir: "results/wandb/neurips/tmaze_passive/ann2snn_both"
+log_dir: "results/NeurIPS/logs/tmaze_passive/ann2snn_both"
+plots_dir: "results/NeurIPS/plots/tmaze_passive/ann2snn_both"
+video_dir: "results/NeurIPS/videos/tmaze_passive/ann2snn_both"
+wandb_dir: "results/NeurIPS/wandb/tmaze_passive/ann2snn_both"
 
 save_ckpt: true
 device: "cuda"
@@ -22,14 +22,14 @@ experiment_meta:
 
 env:
   id: "tmaze-v0"
-  kwargs: 
-    active: false              # Start with inactive T-Maze for simplicity
+  kwargs:
+    active: false # Start with inactive T-Maze for simplicity
     length: 3
   n_envs: 8
-  vec_normalize: false         # False for discrete grid inputs
+  vec_normalize: false # False for discrete grid inputs
   max_episode_steps: 100
-  frame_stack: 4               # stack frames to compensate for hidden hint
-  frame_stack_flatten: true    # flatten stacked frames for MLP input
+  frame_stack: 4 # stack frames to compensate for hidden hint
+  frame_stack_flatten: true # flatten stacked frames for MLP input
 
 logging:
   checkpoint_interval_updates: 10
@@ -40,10 +40,10 @@ logging:
 
 # PHASE 1: ANN TRAINING (Optimized for T-Maze)
 training:
-  rollout_length: 64           # Reduced from 2048. T-Maze episodes are very short (3-6 steps).
+  rollout_length: 64 # Reduced from 2048. T-Maze episodes are very short (3-6 steps).
   total_updates: 200
-  batch_size: 64               # Reduced from 256
-  update_epochs: 4             # Reduced from 10 to prevent overfitting
+  batch_size: 64 # Reduced from 256
+  update_epochs: 4 # Reduced from 10 to prevent overfitting
   sticky_action: false
   no_action_cfg: null
 
@@ -53,11 +53,11 @@ ppo:
   lam: 0.95
   clip_eps: 0.2
   clip_range_vf: 0.2
-  entropy_coef: 0.05           # 0.05 encourages exploration, 0.0 is too greedy for T-Maze early on
+  entropy_coef: 0.05 # 0.05 encourages exploration, 0.0 is too greedy for T-Maze early on
   value_coef: 0.5
   max_grad_norm: 0.5
   target_kl: 0.015
-  eval_interval_updates: 10    # Evaluate more frequently due to shorter run
+  eval_interval_updates: 10 # Evaluate more frequently due to shorter run
   eval_episodes: 20
   solved_window_eval_episodes: 100
   eval_seed: 42
@@ -71,19 +71,19 @@ model:
   hidden_dim: 128
   dropout: 0.2
   critic_informs_actor: false
-  in_features: 16              # CRITICAL: 4 (obs size) * 4 (frame stack) = 16
+  in_features: 16 # CRITICAL: 4 (obs size) * 4 (frame stack) = 16
 
 # PHASE 2: CONVERSION
 snn_convert:
   convert_actor: true
-  convert_critic: true         # Set to true for full conversion
-  T: 32                        # 32 steps provides excellent conversion fidelity
-  beta: 1.0                    # Beta 1.0 is standard for ANN->SNN rate encoding mathematical equivalence
+  convert_critic: true # Set to true for full conversion
+  T: 32 # 32 steps provides excellent conversion fidelity
+  beta: 1.0 # Beta 1.0 is standard for ANN->SNN rate encoding mathematical equivalence
   V_th: 1.0
   poisson_encode: false
   rate_scale: 1.0
   center_logits: true
-  p99_scale: true              # Added p99 scaling to prevent spike saturation during conversion
+  p99_scale: true # Added p99 scaling to prevent spike saturation during conversion
   calibration_episodes: 256
   calibration_stochastic: true
   calibration_obs_noise_std: 0.01
@@ -92,7 +92,7 @@ snn_convert:
 # PHASE 3: FINE-TUNING
 snn_finetune:
   enabled: true
-  total_updates: 50            # Reduced from 100. Fine-tuning a pre-trained T-maze policy is very fast.
+  total_updates: 50 # Reduced from 100. Fine-tuning a pre-trained T-maze policy is very fast.
   lr: 0.0001
   lambda_spike: 0.001
 
@@ -109,7 +109,6 @@ benchmark:
 seed_control:
   deterministic_torch: true
   cudnn_benchmark: false
-
 
 reporting:
   save_plots: true
