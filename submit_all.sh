@@ -7,6 +7,16 @@
 #   bash submit_all.sh poc        → poc only
 #   bash submit_all.sh tmaze      → tmaze active + passive
 
+# GPU nodes on the WITS bigbatch cluster
+GPU_NODES=(
+    mscluster42 mscluster44
+    mscluster72 mscluster73 mscluster75 mscluster76 mscluster77
+    mscluster78 mscluster79 mscluster80 mscluster81 mscluster82
+    mscluster84 mscluster85 mscluster86 mscluster87 mscluster88 mscluster89
+)
+NODE_COUNT=${#GPU_NODES[@]}
+node_idx=0
+
 # Model registry: model_key → script|config_filename
 declare -A MODELS
 MODELS["ann_baseline"]="ann_baseline.py|ann_baseline.yaml"
@@ -30,11 +40,15 @@ submit_env() {
         IFS='|' read -r script config_file <<< "${MODELS[$model_key]}"
         local config_path="configs/${config_dir}/${config_file}"
         local exp_key="${log_key}/${model_key}"
+        local node="${GPU_NODES[$((node_idx % NODE_COUNT))]}"
 
-        echo "Submitting: $exp_key (active=${env_active:-N/A})"
+        echo "Submitting: $exp_key → $node (active=${env_active:-N/A})"
         sbatch --job-name="${log_key}_${model_key}" \
+               --nodelist="$node" \
                submit_array.slurm \
                "$script" "$config_path" "$exp_key" "$env_active"
+
+        ((node_idx++))
     done
 }
 
