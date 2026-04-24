@@ -84,6 +84,7 @@ snn:
   # Actor
   actor_T: 16
   actor_V_th: 0.6
+  actor_surrogate_type: "fast_sigmoid"
   actor_surrogate_slope: 5.0
   actor_logit_temp: 1.0
   actor_poisson_encode: false
@@ -95,6 +96,7 @@ snn:
   critic_rate_scale: 5.0
   critic_spike_temp: 5.0
   critic_poisson_encode: false
+  critic_surrogate_type: "cosh"
 
   # surrogate gradient parameters for critic timing
   critic_cosh_alpha: 2.0

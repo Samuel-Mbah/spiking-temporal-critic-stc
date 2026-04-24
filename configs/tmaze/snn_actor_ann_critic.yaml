@@ -78,7 +78,8 @@ snn:
   V_th: 0.6 # Bumped down to 0.6 to match actor_V_th of successful run
   poisson_encode: false
   rate_scale: 1.0
-  actor_surrogate_slope: 5.0 # Matches successful run
+  actor_surrogate_type: "fast_sigmoid"
+  actor_surrogate_slope: 5.0
   actor_logit_temp: 1.0
   center_logits: true
 

@@ -6,11 +6,11 @@ optionally concatenate critic predictions for actor-critic workflows.
 import torch
 import torch.nn as nn
 import snntorch as snn
-from snntorch import surrogate
 from typing import Optional
 
 from src.models.snn_utils import poisson_encode, init_lif_states
 from src.models.snn_block import SNNBlock
+from src.models.surrogates import make_surrogate
 
 
 class SNNSpikeActor(nn.Module):
@@ -29,6 +29,9 @@ class SNNSpikeActor(nn.Module):
         center_logits: bool = True,
         use_potential_fallback: bool = False,
         actor_surrogate_slope: float = 25.0,
+        actor_surrogate_type: str = "fast_sigmoid",
+        actor_cosh_alpha: float = 10.0,
+        actor_cosh_beta: float = 1.0,
     ):
         super().__init__()
 
@@ -39,7 +42,12 @@ class SNNSpikeActor(nn.Module):
         self.center_logits = bool(center_logits)
         self.use_potential_fallback = bool(use_potential_fallback)
 
-        sg = surrogate.fast_sigmoid(slope=int(actor_surrogate_slope))
+        sg = make_surrogate(
+            actor_surrogate_type,
+            slope=actor_surrogate_slope,
+            alpha=actor_cosh_alpha,
+            beta=actor_cosh_beta,
+        )
 
         # Stack three SNN blocks to grow a deep spike-processing actor.
         self.block1 = SNNBlock(

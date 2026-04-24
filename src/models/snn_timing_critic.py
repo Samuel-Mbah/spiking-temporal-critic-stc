@@ -8,7 +8,7 @@ import torch.nn as nn
 import snntorch as snn
 
 from src.models.snn_block import SNNBlock
-from src.models.surrogates import cosh_surrogate
+from src.models.surrogates import make_surrogate
 from src.models.snn_utils import poisson_encode
 
 
@@ -39,6 +39,8 @@ class SNNTimingCritic(nn.Module):
         spike_temp: float = 25.0,
         poisson_encode: bool = True,
         rate_scale: float = 1.0,
+        critic_surrogate_type: str = "cosh",
+        critic_surrogate_slope: float = 25.0,
         cosh_alpha: float = 10.0,
         cosh_beta: float = 1.0,
         use_hard_no_spike: bool = False,
@@ -58,7 +60,12 @@ class SNNTimingCritic(nn.Module):
         self.use_hard_no_spike  = bool(use_hard_no_spike)
         self.scale_by_discount  = bool(scale_by_discount)
 
-        sg = cosh_surrogate(alpha=cosh_alpha, beta=cosh_beta)
+        sg = make_surrogate(
+            critic_surrogate_type,
+            slope=critic_surrogate_slope,
+            alpha=cosh_alpha,
+            beta=cosh_beta,
+        )
 
         self.block1 = SNNBlock(
             nn.Linear(in_dim, hid_dim),

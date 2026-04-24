@@ -68,6 +68,9 @@ def build_actor(
     center_logits: bool = True,
     critic_informs_actor: bool = False,
     actor_surrogate_slope: float = 25.0,
+    actor_surrogate_type: str = "fast_sigmoid",
+    actor_cosh_alpha: float = 10.0,
+    actor_cosh_beta: float = 1.0,
     dropout: float = 0.0,
     **kwargs,
 ) -> nn.Module:
@@ -103,6 +106,9 @@ def build_actor(
             logit_temp=logit_temp,
             center_logits=center_logits,
             actor_surrogate_slope=actor_surrogate_slope,
+            actor_surrogate_type=actor_surrogate_type,
+            actor_cosh_alpha=actor_cosh_alpha,
+            actor_cosh_beta=actor_cosh_beta,
         )
 
     raise ValueError(f"Unsupported actor type: {actor_type}")
@@ -118,6 +124,8 @@ def build_critic(
     Rmax: float,
     Rmin: float,
     critic_spike_temp: float = 25.0,
+    critic_surrogate_type: str = "cosh",
+    critic_surrogate_slope: float = 25.0,
     critic_cosh_alpha: float = 10.0,
     critic_cosh_beta: float = 1.0,
     critic_use_hard_no_spike: bool = False,
@@ -161,6 +169,8 @@ def build_critic(
             spike_temp=critic_spike_temp,
             poisson_encode=params["critic_poisson"],
             rate_scale=params["critic_rate"],
+            critic_surrogate_type=critic_surrogate_type,
+            critic_surrogate_slope=critic_surrogate_slope,
             cosh_alpha=critic_cosh_alpha,
             cosh_beta=critic_cosh_beta,
             use_hard_no_spike=critic_use_hard_no_spike,

@@ -23,7 +23,7 @@ experiment_meta:
 env:
   id: "CartPole-v1"
   n_envs: 8
-  vec_normalize: false         # Often better false for direct SNN inputs
+  vec_normalize: false # Often better false for direct SNN inputs
   max_episode_steps: 500
 
 logging:
@@ -35,18 +35,18 @@ logging:
 
 # TRAINING (Matched to ANN Baseline)
 training:
-  rollout_length: 2048        # Large buffer
-  total_updates: 500        # ~16.4M steps
-  batch_size: 256            # Increased from 64 for stability
-  update_epochs: 10           # Increased from 4
+  rollout_length: 2048 # Large buffer
+  total_updates: 500 # ~16.4M steps
+  batch_size: 256 # Increased from 64 for stability
+  update_epochs: 10 # Increased from 4
   sticky_action: false
   no_action_cfg: null
 
 ppo:
-  lr: 0.0003                  # Lower LR often needed for SNN stability
+  lr: 0.0003 # Lower LR often needed for SNN stability
   gamma: 0.99
   lam: 0.95
-  clip_eps: 0.1              # Stricter clipping for SNN
+  clip_eps: 0.1 # Stricter clipping for SNN
   clip_range_vf: null
   entropy_coef: 0.01
   value_coef: 0.5
@@ -80,6 +80,7 @@ snn:
   # Actor
   actor_T: 16
   actor_V_th: 0.6
+  actor_surrogate_type: "fast_sigmoid"
   actor_surrogate_slope: 5.0
   actor_logit_temp: 1.0
   actor_poisson_encode: false
@@ -91,6 +92,7 @@ snn:
   critic_rate_scale: 5.0
   critic_spike_temp: 5.0
   critic_poisson_encode: false
+  critic_surrogate_type: "cosh"
 
   # surrogate gradient parameters for critic timing
   critic_cosh_alpha: 2.0
@@ -98,16 +100,15 @@ snn:
   critic_use_hard_no_spike: true
 
   # Reward Mapping (Temporal Value Encoding)
-  Rmax: 100.0           # Value if spike happens immediately (t=0)
-  Rmin: 0.0             # Value if spike happens at t=critic_T (or never)
-
+  Rmax: 100.0 # Value if spike happens immediately (t=0)
+  Rmin: 0.0 # Value if spike happens at t=critic_T (or never)
 
 # BENCHMARKING
 benchmark:
-  measure_inference_energy: true  
-  energy_runs_per_measure: 5      
-  run_for_ann: true               
-  num_episodes_for_benchmark: 50 
+  measure_inference_energy: true
+  energy_runs_per_measure: 5
+  run_for_ann: true
+  num_episodes_for_benchmark: 50
 
 spike_reg:
   lambda_spike: 0.0002

@@ -5,6 +5,7 @@ Implements FastSigmoid and CoshFunction surrogate gradients compatible with snnt
 import torch
 import torch.nn as nn
 from typing import Any
+from snntorch import surrogate as snn_surrogate
 
 class FastSigmoid(torch.autograd.Function):
     """
@@ -19,9 +20,10 @@ class FastSigmoid(torch.autograd.Function):
         return (input > 0).float()
 
     @staticmethod
-    def backward(ctx: Any, grad_output: torch.Tensor) -> Any:
+    def backward(ctx: Any, *grad_outputs: torch.Tensor) -> Any:
         (input,) = ctx.saved_tensors
         slope = ctx.slope
+        grad_output = grad_outputs[0]
         grad_input = grad_output.clone()
         
         # Derivative of fast sigmoid
@@ -46,10 +48,43 @@ def cosh_surrogate(alpha: float = 10.0, beta: float = 1.0):
             return (input > 0).float()
 
         @staticmethod
-        def backward(ctx, grad_output):
+        def backward(ctx, *grad_outputs):
             (input,) = ctx.saved_tensors
+            grad_output = grad_outputs[0]
             sgax = (input * alpha)
             grad_x = (1.0 / (beta * torch.cosh(sgax)) ** 2) * alpha * 0.5  # Approx derivative
             return grad_output * grad_x
 
     return CoshFunction.apply
+
+
+def _normalize_surrogate_name(name: str) -> str:
+    norm = str(name).strip().lower().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "fastsigmoid": "fast_sigmoid",
+        "snntorch_fast_sigmoid": "fast_sigmoid",
+        "cosh_surrogate": "cosh",
+    }
+    return aliases.get(norm, norm)
+
+
+def make_surrogate(
+    surrogate_type: str = "fast_sigmoid",
+    *,
+    slope: float = 25.0,
+    alpha: float = 10.0,
+    beta: float = 1.0,
+):
+    """Return a spike_grad callable usable by snntorch neuron layers."""
+    name = _normalize_surrogate_name(surrogate_type)
+
+    if name == "fast_sigmoid":
+        # Preserve historical behavior used by the actor implementation.
+        return snn_surrogate.fast_sigmoid(slope=int(slope))
+
+    if name == "cosh":
+        return cosh_surrogate(alpha=alpha, beta=beta)
+
+    raise ValueError(
+        f"Unknown surrogate_type '{surrogate_type}'. Supported: fast_sigmoid, cosh"
+    )
