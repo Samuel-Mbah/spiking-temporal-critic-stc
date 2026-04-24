@@ -149,6 +149,9 @@ def run_baseline(config: Dict[str, Any]) -> Dict[str, Any]:
     idle_power_watts = float(getattr(energy_hook, "idle_power_watts", 0.0))
     logger.record("energy/idle_power_watts", idle_power_watts, exclude_from_console=True)
 
+    reward_threshold       = float(ppo_cfg.get("reward_threshold", 475.0))
+    success_rate_threshold = float(ppo_cfg.get("success_rate_threshold", 95.0))
+
     # Record run-level constants once so they appear in logs without
     # polluting every eval step with flat lines.
     logger.record("config/reward_threshold",        float(reward_threshold),       exclude_from_console=True)
@@ -177,8 +180,6 @@ def run_baseline(config: Dict[str, Any]) -> Dict[str, Any]:
     # --- 5. Training Parameters ---
     total_updates          = int(train_cfg.get("total_updates", 1000))
     ckpt_interval          = int(log_cfg.get("checkpoint_interval_updates", 50))
-    reward_threshold       = float(ppo_cfg.get("reward_threshold", 475.0))
-    success_rate_threshold = float(ppo_cfg.get("success_rate_threshold", 95.0))
     save_ckpt_flag         = config.get("save_ckpt", False)
 
     train_rewards             = []
