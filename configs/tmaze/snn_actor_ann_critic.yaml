@@ -45,11 +45,11 @@ training:
   no_action_cfg: null
 
 ppo:
-  lr: 0.0005                   # Lower policy LR for stability
+  lr: 0.0003
   gamma: 0.99
   lam: 0.95
-  clip_eps: 0.08               # Tighter PPO clipping
-  clip_range_vf: 0.1
+  clip_eps: 0.2
+  clip_range_vf: null
   entropy_coef: 0.05           # Enough to encourage exploration in T-Maze
   value_coef: 0.5 
   max_grad_norm: 0.5
@@ -63,12 +63,11 @@ ppo:
   reward_threshold: 0.95
   success_rate_threshold: 95.0
   scale_returns_to_value: false
-  normalize_value_targets: true
 
 model:
   mode: "snn_actor_ann_critic"
-  hidden_dim: 64
-  dropout: 0.0
+  hidden_dim: 128
+  dropout: 0.2
   in_features: 16              # CRITICAL: 4 (obs size) * 4 (frame stack) = 16
   critic_informs_actor: false
 

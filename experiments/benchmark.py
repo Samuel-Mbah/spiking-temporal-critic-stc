@@ -58,7 +58,7 @@ from src.utils.plotting import (
     plot_sparsity_breakdown,
 )
 from src.utils.metrics import load_training_data
-from src.training.envs import make_envs, VecNormalize, set_global_seeds
+from src.training.envs import make_envs, VecNormalize, RunningMeanStd, set_global_seeds
 from src.training.evaluate import evaluate_snn
 from src.utils.checkpoint import load_checkpoint
 
@@ -117,14 +117,25 @@ def _load_agent(checkpoint_path: str, config: dict, device: torch.device) -> tor
     agent = _build_agent_from_config(config, device)
     data  = load_checkpoint(checkpoint_path, agent=agent, map_location=device)
 
-    # Restore VecNormalize obs stats if present (needed for normalised envs)
+    # Restore VecNormalize obs stats from checkpoint (overrides config vec_normalize flag —
+    # the checkpoint is ground truth for whether normalisation was used during training).
     vec_state = (data or {}).get("vecnorm_state") or {}
-    if vec_state and hasattr(agent, "obs_rms"):
-        obs_state = vec_state.get("obs_rms", {})
-        if obs_state:
-            agent.obs_rms.mean  = np.asarray(obs_state.get("mean",  agent.obs_rms.mean),  dtype=np.float64)
-            agent.obs_rms.var   = np.asarray(obs_state.get("var",   agent.obs_rms.var),   dtype=np.float64)
-            agent.obs_rms.count = float(obs_state.get("count", agent.obs_rms.count))
+    obs_state = vec_state.get("obs_rms", {})
+    if obs_state:
+        mean = np.asarray(obs_state.get("mean", [0.0]), dtype=np.float64)
+        var  = np.asarray(obs_state.get("var",  [1.0]), dtype=np.float64)
+        cnt  = float(obs_state.get("count", 1.0))
+        if hasattr(agent, "obs_rms"):
+            agent.obs_rms.mean  = mean
+            agent.obs_rms.var   = var
+            agent.obs_rms.count = cnt
+        else:
+            # Agent was built without obs_rms — attach one so _maybe_wrap_vecnorm picks it up
+            rms = RunningMeanStd(shape=mean.shape)
+            rms.mean  = mean
+            rms.var   = var
+            rms.count = cnt
+            agent.obs_rms = rms
 
     agent.eval()
     logger.info(f"Loaded checkpoint: {checkpoint_path}")
@@ -148,7 +159,9 @@ def _make_bench_env(config: dict, seed_offset: int = 1000):
 
 def _maybe_wrap_vecnorm(env, agent, config: dict):
     env_cfg = config.get("env", {})
-    if env_cfg.get("vec_normalize", False) and hasattr(agent, "obs_rms"):
+    config_wants_norm = env_cfg.get("vec_normalize", False)
+    checkpoint_has_norm = hasattr(agent, "obs_rms")
+    if (config_wants_norm or checkpoint_has_norm) and checkpoint_has_norm:
         env = VecNormalize(env, training=False, norm_obs=True, norm_reward=False)
         env.obs_rms = agent.obs_rms
     return env
