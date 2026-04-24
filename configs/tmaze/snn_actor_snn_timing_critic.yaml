@@ -1,10 +1,10 @@
 # Research-grade SNN Actor + SNN Timing Critic for T-Maze 
-run_name: "SNN_TimingCritic_TMaze_v1"
-project_name: "tmaze-snn-project"
-log_dir: "results/logs/tmaze_snn_timing_critic"
-plots_dir: "results/plots/tmaze_snn_timing_critic"
-video_dir: "results/videos/tmaze_snn_timing_critic"
-wandb_dir: "results/wandb/tmaze_snn_timing_critic"
+run_name: "SNN_TimingCritic_TMaze_Passive_NeurIPS"
+project_name: "tmaze-snn-neurips"
+log_dir: "results/logs/neurips/tmaze_passive/snn_timing_critic"
+plots_dir: "results/plots/neurips/tmaze_passive/snn_timing_critic"
+video_dir: "results/videos/neurips/tmaze_passive/snn_timing_critic"
+wandb_dir: "results/wandb/neurips/tmaze_passive/snn_timing_critic"
 
 save_ckpt: true
 device: "cuda"

@@ -2,12 +2,12 @@
 # Phase 1: ANN training with partial obs + frame stack
 # Phase 2: Conversion & Fine-tuning
 
-run_name: "ANN2SNN_Full_v1"
-project_name: "cartpole-snn-project"
-log_dir: "results/RLC/logs/poc_ann2snn_full"
-plots_dir: "results/RLC/plots/poc_ann2snn_full"
-video_dir: "results/RLC/videos/poc_ann2snn_full"
-wandb_dir: "results/RLC/wandb/poc_ann2snn_full"
+run_name: "ANN2SNN_Full_POC_NeurIPS"
+project_name: "poc-snn-neurips"
+log_dir: "results/logs/neurips/poc/ann2snn_both"
+plots_dir: "results/plots/neurips/poc/ann2snn_both"
+video_dir: "results/videos/neurips/poc/ann2snn_both"
+wandb_dir: "results/wandb/neurips/poc/ann2snn_both"
 
 save_ckpt: true
 device: "cuda"

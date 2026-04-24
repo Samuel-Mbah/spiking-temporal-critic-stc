@@ -3,12 +3,12 @@
 # - Fair comparison: aligned with POC baseline and frame stack
 # - Long-run config: see total_updates for actual step count
 
-run_name: "SNN_TimingCritic_Decoupled_v1"
-project_name: "cartpole-snn-project"
-log_dir: "results/RLC/logs/poc_snn_timing_critic"
-plots_dir: "results/RLC/plots/poc_snn_timing_critic"
-video_dir: "results/RLC/videos/poc_snn_timing_critic"
-wandb_dir: "results/RLC/wandb/poc_snn_timing_critic"
+run_name: "SNN_TimingCritic_POC_NeurIPS"
+project_name: "poc-snn-neurips"
+log_dir: "results/logs/neurips/poc/snn_timing_critic"
+plots_dir: "results/plots/neurips/poc/snn_timing_critic"
+video_dir: "results/videos/neurips/poc/snn_timing_critic"
+wandb_dir: "results/wandb/neurips/poc/snn_timing_critic"
 
 save_ckpt: true
 device: "cuda"

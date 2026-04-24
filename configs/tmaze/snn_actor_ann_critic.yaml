@@ -1,10 +1,10 @@
 # Research-grade SNN Actor + ANN Critic for T-Maze (Passive, Length 3)
-run_name: "SNN_Actor_ANN_Critic_TMaze_v1"
-project_name: "tmaze-snn-project"
-log_dir: "results/logs/tmaze_snn_actor_ann_critic"
-plots_dir: "results/plots/tmaze_snn_actor_ann_critic"
-video_dir: "results/videos/tmaze_snn_actor_ann_critic"
-wandb_dir: "results/wandb/tmaze_snn_actor_ann_critic"
+run_name: "SNN_ANN_Critic_TMaze_Passive_NeurIPS"
+project_name: "tmaze-snn-neurips"
+log_dir: "results/logs/neurips/tmaze_passive/snn_ann_critic"
+plots_dir: "results/plots/neurips/tmaze_passive/snn_ann_critic"
+video_dir: "results/videos/neurips/tmaze_passive/snn_ann_critic"
+wandb_dir: "results/wandb/neurips/tmaze_passive/snn_ann_critic"
 
 save_ckpt: true
 device: "cuda"

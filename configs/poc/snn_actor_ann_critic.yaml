@@ -1,12 +1,12 @@
 # Research-grade SNN Actor + ANN Critic (Direct Training) for partially observable CartPole
 # - Baseline Comparison: Isolates actor performance under partial observability
 
-run_name: "SNN_Actor_Direct_v1"
-project_name: "cartpole-snn-project"
-log_dir: "results/RLC/logs/poc_snn_actor_direct"
-plots_dir: "results/RLC/plots/poc_snn_actor_direct"
-video_dir: "results/RLC/videos/poc_snn_actor_direct"
-wandb_dir: "results/RLC/wandb/poc_snn_actor_direct"
+run_name: "SNN_ANN_Critic_POC_NeurIPS"
+project_name: "poc-snn-neurips"
+log_dir: "results/logs/neurips/poc/snn_ann_critic"
+plots_dir: "results/plots/neurips/poc/snn_ann_critic"
+video_dir: "results/videos/neurips/poc/snn_ann_critic"
+wandb_dir: "results/wandb/neurips/poc/snn_ann_critic"
 
 save_ckpt: true
 device: "cuda"

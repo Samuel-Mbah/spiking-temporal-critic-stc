@@ -3,12 +3,12 @@
 # - Robust: 5 external seeds (via shell script), ~16.4M steps total
 # - Traceable: logging, checkpoints, periodic reports
 
-run_name: "ANN_CartPole_research_v1"
-project_name: "cartpole-snn-project"
-log_dir: "results/RLC/logs/poc_ann_research"
-plots_dir: "results/RLC/plots/poc_ann_research"
-video_dir: "results/RLC/videos/poc_ann_research"
-wandb_dir: "results/RLC/wandb/poc_ann_research"
+run_name: "ANN_POC_NeurIPS"
+project_name: "poc-snn-neurips"
+log_dir: "results/logs/neurips/poc/ann"
+plots_dir: "results/plots/neurips/poc/ann"
+video_dir: "results/videos/neurips/poc/ann"
+wandb_dir: "results/wandb/neurips/poc/ann"
 
 save_ckpt: true
 device: "cuda"         # change to "cpu" if GPU unavailable
