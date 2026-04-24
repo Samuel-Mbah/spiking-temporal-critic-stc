@@ -96,6 +96,10 @@ def main():
     if 'plots_dir' in config:
         os.makedirs(config['plots_dir'], exist_ok=True)
 
+    # Save resolved config (includes CLI overrides like --seed, --log-dir)
+    with open(os.path.join(config['log_dir'], 'config.yaml'), 'w') as _f:
+        yaml.dump(config, _f, default_flow_style=False, sort_keys=False)
+
     # 3. Weights & Biases
     if config.get("reporting", {}).get("wandb", {}).get("use", False):
         wandb.init(
