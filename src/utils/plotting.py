@@ -3301,3 +3301,92 @@ def plot_sparsity_breakdown(
     )
 
     _savefig(fig, save_path)
+
+
+def plot_timing_critic_correlation(
+    critic_timings: List[np.ndarray],
+    critic_values: List[np.ndarray],
+    save_path: str,
+    subtitle: str = "",
+) -> None:
+    """Scatter plot of timing-critic predicted tau vs target value across seeds."""
+    fig, ax = plt.subplots(figsize=(7, 5))
+    colors = plt.cm.tab10.colors  # type: ignore[attr-defined]
+
+    all_tau: List[float] = []
+    all_val: List[float] = []
+
+    for i, (tau_arr, val_arr) in enumerate(zip(critic_timings, critic_values)):
+        tau = np.asarray(tau_arr, dtype=float).ravel()
+        val = np.asarray(val_arr, dtype=float).ravel()
+        n = min(tau.size, val.size)
+        if n == 0:
+            continue
+        tau, val = tau[:n], val[:n]
+        mask = np.isfinite(tau) & np.isfinite(val)
+        tau, val = tau[mask], val[mask]
+        ax.scatter(tau, val, s=8, alpha=0.35, color=colors[i % len(colors)],
+                   label=f"Seed {i + 1}")
+        all_tau.extend(tau.tolist())
+        all_val.extend(val.tolist())
+
+    if len(all_tau) >= 2:
+        t = np.asarray(all_tau)
+        v = np.asarray(all_val)
+        coeffs = np.polyfit(t, v, 1)
+        t_line = np.linspace(t.min(), t.max(), 200)
+        ax.plot(t_line, np.polyval(coeffs, t_line),
+                color="black", lw=1.5, ls="--", label="Linear fit (pooled)")
+
+    ax.set_xlabel("Predicted Spike Time $\\tau$", fontsize=11)
+    ax.set_ylabel("Target Value", fontsize=11)
+    title_str = "Timing Critic: $\\tau$ vs Target Value"
+    if subtitle:
+        title_str += f"\n{subtitle}"
+    ax.set_title(title_str, fontsize=12, fontweight="bold")
+    ax.legend(fontsize=8, markerscale=2, loc="best")
+    fig.tight_layout()
+    _savefig(fig, save_path)
+
+
+def plot_activation_counts(
+    activations: Dict[str, np.ndarray],
+    temporal: bool = True,
+    title: str = "Layer Activation Activity",
+    save_path: str = "validation_activations.png",
+) -> None:
+    """Per-layer mean activation values collected during validation.
+
+    ``temporal=True`` plots each layer as a time-series line.
+    ``temporal=False`` shows a bar chart of per-layer means.
+    """
+    layers = [k for k, v in activations.items() if len(v) > 0]
+    if not layers:
+        _placeholder_plot("No activation data", save_path)
+        return
+
+    colors = plt.cm.tab10.colors  # type: ignore[attr-defined]
+
+    if temporal:
+        fig, ax = plt.subplots(figsize=(9, 4))
+        for i, layer in enumerate(layers):
+            vals = np.asarray(activations[layer], dtype=float)
+            ax.plot(vals, label=layer, color=colors[i % len(colors)], lw=1.5)
+        ax.set_xlabel("Validation Step", fontsize=11)
+        ax.set_ylabel("Mean Activation", fontsize=11)
+        ax.legend(fontsize=9, loc="upper right")
+    else:
+        fig, ax = plt.subplots(figsize=(max(4, len(layers)), 4))
+        means = [float(np.nanmean(activations[l])) for l in layers]
+        stds  = [float(np.nanstd(activations[l]))  for l in layers]
+        xs = np.arange(len(layers))
+        ax.bar(xs, means, yerr=stds,
+               color=[colors[i % len(colors)] for i in range(len(layers))],
+               capsize=4, alpha=0.8)
+        ax.set_xticks(xs)
+        ax.set_xticklabels(layers, rotation=15, ha="right", fontsize=10)
+        ax.set_ylabel("Mean Activation", fontsize=11)
+
+    ax.set_title(title, fontsize=12, fontweight="bold")
+    fig.tight_layout()
+    _savefig(fig, save_path)
