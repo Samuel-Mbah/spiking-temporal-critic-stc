@@ -1,0 +1,147 @@
+# SNN Actor + SNN Timing Critic for T-Maze (Active, Length 3)
+# Active variant: hint appears during traversal (harder than passive).
+# Key differences from passive config:
+#   - total_updates: 400 (2x — timing circuit needs more time to escape slow-tau local minima)
+#   - clip_range_vf: 0.2 (critic value stabilisation)
+#   - entropy_coef: 0.08 (higher to sustain exploration)
+#   - critic_cosh_alpha: 3.0 (sharper surrogate gradient → stronger signal to escape slow-tau mode)
+#   - lambda_spike: 0.0005 (halved — less regularisation pressure while critic is learning)
+
+run_name: "SNN_TimingCritic_TMaze_Active_NeurIPS"
+project_name: "tmaze-snn-neurips"
+log_dir: "results/logs/neurips/tmaze_active/snn_timing_critic"
+plots_dir: "results/plots/neurips/tmaze_active/snn_timing_critic"
+video_dir: "results/videos/neurips/tmaze_active/snn_timing_critic"
+wandb_dir: "results/wandb/neurips/tmaze_active/snn_timing_critic"
+
+save_ckpt: true
+device: "cuda"
+env_seed: 42
+instrument_timing: true
+timing_log_interval: 100
+
+experiment_meta:
+  repeats: 5
+  base_seed: 42
+  per_repeat_tag: "research"
+
+env:
+  id: "tmaze-v0"
+  kwargs:
+    active: true
+    length: 3
+  n_envs: 8
+  vec_normalize: false
+  max_episode_steps: 100
+  frame_stack: 4
+  frame_stack_flatten: true
+
+logging:
+  checkpoint_interval_updates: 10
+  save_last_checkpoint: true
+  logger_collect_spikes: true
+  activations_probe_interval: 100
+  latency_probe_interval: 100
+
+training:
+  rollout_length: 64
+  total_updates: 400 # 2x passive — timing circuit needs budget to escape slow-tau minima
+  batch_size: 64
+  update_epochs: 4
+  sticky_action: false
+  no_action_cfg: null
+
+ppo:
+  lr: 0.0003
+  gamma: 0.99
+  lam: 0.95
+  clip_eps: 0.2
+  clip_range_vf: 0.2 # Critic value stabilisation
+  entropy_coef: 0.08 # Higher to sustain exploration on harder task
+  value_coef: 0.5
+  max_grad_norm: 0.5
+  target_kl: 0.015
+  kl_coef: 0.02
+  print_interval_updates: 10
+  eval_interval_updates: 10
+  eval_episodes: 20
+  solved_window_eval_episodes: 100
+  eval_seed: 42
+  reward_threshold: 0.95
+  success_rate_threshold: 95.0
+  scale_returns_to_value: false
+  normalize_value_targets: false
+
+model:
+  mode: "snn_actor_snn_timing_critic"
+  hidden_dim: 128
+  dropout: 0.2
+  in_features: 16 # 4 (obs size) * 4 (frame stack)
+  critic_informs_actor: false
+  actor_critic_normalize: true
+
+snn:
+  T: null
+  beta: 0.95
+  V_th: 1.0
+  poisson_encode: false
+  rate_scale: 1.0
+
+  # Actor
+  actor_T: 16
+  actor_V_th: 0.6
+  actor_surrogate_type: "fast_sigmoid"
+  actor_surrogate_slope: 5.0
+  actor_logit_temp: 1.0
+  actor_poisson_encode: false
+  center_logits: true
+
+  # Critic
+  critic_T: 32
+  critic_V_th: 1.0
+  critic_rate_scale: 5.0
+  critic_spike_temp: 5.0
+  critic_poisson_encode: false
+  critic_surrogate_type: "cosh"
+
+  # Sharper surrogate gradient to escape slow-tau local minima
+  critic_cosh_alpha: 3.0 # Increased from 2.0 — stronger gradient near threshold
+  critic_cosh_beta: 1.0
+  critic_use_hard_no_spike: false
+  critic_lambda_tau: 0.01 # Tau regularisation: penalises late spiking, prevents tau stuck at T/2
+
+  # Reward Mapping
+  Rmax: 1.0 # T-Maze success yields +1.0
+  Rmin: -1.0 # T-Maze failure yields -1.0
+
+benchmark:
+  measure_inference_energy: false
+  energy_runs_per_measure: 5
+  run_for_ann: false
+  num_episodes_for_benchmark: 50
+
+spike_reg:
+  lambda_spike: 0.0005 # Halved from 0.001 — less regularisation while critic is learning
+
+sticky_action:
+  train: false
+  eval: true
+
+seed_control:
+  deterministic_torch: true
+  cudnn_benchmark: false
+
+post_eval:
+  n_eval_steps: 512
+  n_eval_episodes: null
+  deterministic: true
+  max_episode_steps: 100
+
+reporting:
+  save_plots: true
+  timing_critic_plot_scope: all_steps
+  timing_critic_plot_actor_steps: 16
+  wandb:
+    use: false
+    project: "tmaze-snn-neurips"
+    tags: ["research", "snn", "timing-critic", "active"]

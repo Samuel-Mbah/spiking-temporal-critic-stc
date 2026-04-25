@@ -19,11 +19,12 @@ node_idx=0
 
 # Model registry: model_key → script|config_filename
 declare -A MODELS
-MODELS["ann_baseline"]="ann_baseline.py|ann_baseline.yaml"
-MODELS["snn_actor_ann_critic"]="snn_actor_ann_critic.py|snn_actor_ann_critic.yaml"
-MODELS["snn_actor_snn_timing_critic"]="snn_actor_snn_timing_critic.py|snn_actor_snn_timing_critic.yaml"
-MODELS["ann2snn_actor"]="ann2snn_actor.py|ann2snn_actor.yaml"
-MODELS["ann2snn_both"]="ann2snn_both.py|ann2snn_both.yaml"
+# format: script|config_file|dir_name  (dir_name matches the config log_dir short name)
+MODELS["ann_baseline"]="ann_baseline.py|ann_baseline.yaml|ann"
+MODELS["snn_actor_ann_critic"]="snn_actor_ann_critic.py|snn_actor_ann_critic_passive.yaml|snn_ann_critic"
+MODELS["snn_actor_snn_timing_critic"]="snn_actor_snn_timing_critic.py|snn_actor_snn_timing_critic_passive.yaml|snn_timing_critic"
+MODELS["ann2snn_actor"]="ann2snn_actor.py|ann2snn_actor.yaml|ann2snn_actor"
+MODELS["ann2snn_both"]="ann2snn_both.py|ann2snn_both.yaml|ann2snn_both"
 
 mkdir -p logs   # SLURM writes output here
 
@@ -37,13 +38,13 @@ submit_env() {
     local env_active=${3:-""}
 
     for model_key in "${!MODELS[@]}"; do
-        IFS='|' read -r script config_file <<< "${MODELS[$model_key]}"
+        IFS='|' read -r script config_file dir_name <<< "${MODELS[$model_key]}"
         local config_path="configs/${config_dir}/${config_file}"
-        local exp_key="${log_key}/${model_key}"
+        local exp_key="neurips/${log_key}/${dir_name}"
         local node="${GPU_NODES[$((node_idx % NODE_COUNT))]}"
 
         echo "Submitting: $exp_key → $node (active=${env_active:-N/A})"
-        sbatch --job-name="${log_key}_${model_key}" \
+        sbatch --job-name="${log_key}_${dir_name}" \
                --nodelist="$node" \
                submit_array.slurm \
                "$script" "$config_path" "$exp_key" "$env_active"

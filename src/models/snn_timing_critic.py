@@ -46,6 +46,7 @@ class SNNTimingCritic(nn.Module):
         use_hard_no_spike: bool = False,
         scale_by_discount: bool = False,
         value_affine: bool = False,
+        lambda_tau: float = 0.0,
     ):
         super().__init__()
 
@@ -59,6 +60,7 @@ class SNNTimingCritic(nn.Module):
         self.rate_scale         = float(rate_scale)
         self.use_hard_no_spike  = bool(use_hard_no_spike)
         self.scale_by_discount  = bool(scale_by_discount)
+        self.lambda_tau         = float(lambda_tau)
 
         sg = make_surrogate(
             critic_surrogate_type,
@@ -89,6 +91,7 @@ class SNNTimingCritic(nn.Module):
 
         self._last_reg     = torch.tensor(0.0)
         self._last_latency = 0.0
+        self._last_tau     = torch.tensor(float(self.T) / 2.0)  # live tensor for tau reg
 
     # ------------------------------------------------------------------
     # Utilities
@@ -193,6 +196,7 @@ class SNNTimingCritic(nn.Module):
         self._last_vout = v_traj.detach()   # retained for downstream diagnostics
 
         tau = self._soft_first_spike_time(v_traj)
+        self._last_tau     = tau                        # kept as tensor for tau regularisation
         self._last_latency = float(tau.mean().item())
 
         v = self._map_tau_to_value(tau)
@@ -212,6 +216,12 @@ class SNNTimingCritic(nn.Module):
     # ------------------------------------------------------------------
 
     def regulariser(self):
+        # Spike-count reg + optional tau penalty to prevent slow-mode locking.
+        # Tau penalty penalises late spiking (large tau / T) and keeps gradients
+        # flowing through the critic even when the value loss is near zero.
+        if self.lambda_tau > 0.0 and isinstance(self._last_tau, torch.Tensor):
+            tau_penalty = self.lambda_tau * self._last_tau.mean() / float(self.T)
+            return self._last_reg + tau_penalty
         return self._last_reg
 
     def last_latency(self) -> float:

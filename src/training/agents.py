@@ -131,6 +131,7 @@ def build_critic(
     critic_use_hard_no_spike: bool = False,
     critic_scale_by_discount: bool = False,
     critic_value_affine: bool = False,
+    critic_lambda_tau: float = 0.0,
     dropout: float = 0.0,
     **kwargs,
 ) -> nn.Module:
@@ -176,6 +177,7 @@ def build_critic(
             use_hard_no_spike=critic_use_hard_no_spike,
             scale_by_discount=critic_scale_by_discount,
             value_affine=critic_value_affine,
+            lambda_tau=critic_lambda_tau,
         )
 
     raise ValueError(f"Unsupported critic type: {critic_type}")
@@ -215,6 +217,15 @@ def make_agent(
     # Apply Standard PPO Initialization
     actor.apply(orthogonal_init)
     critic.apply(orthogonal_init)
+
+    # Break the zero-value fixed point for ANN critics on sparse-reward tasks.
+    # orthogonal_init zeros all biases; on sparse-reward envs the critic can
+    # trivially converge to predicting 0 for everything and never escape.
+    # A small positive bias on the value head gives the optimizer a gradient
+    # to climb before any positive rewards are seen.
+    critic_value_init_bias = float(kwargs.get("critic_value_init_bias", 0.0))
+    if critic_value_init_bias != 0.0 and hasattr(critic, "value_head"):
+        nn.init.constant_(critic.value_head.bias, critic_value_init_bias)
 
     return ActorCritic(
         actor=actor,

@@ -13,18 +13,30 @@ SEEDS="${2:-1 2 3 4 5}"   # override with single seed for quick runs
 declare -A MODELS
 # format: script|config_file|dir_name  (dir_name matches the config log_dir short name)
 MODELS["ann_baseline"]="ann_baseline.py|ann_baseline.yaml|ann"
-MODELS["snn_actor_ann_critic"]="snn_actor_ann_critic.py|snn_actor_ann_critic.yaml|snn_ann_critic"
-MODELS["snn_actor_snn_timing_critic"]="snn_actor_snn_timing_critic.py|snn_actor_snn_timing_critic.yaml|snn_timing_critic"
+MODELS["snn_actor_ann_critic"]="snn_actor_ann_critic.py|snn_actor_ann_critic_passive.yaml|snn_ann_critic"
+MODELS["snn_actor_snn_timing_critic"]="snn_actor_snn_timing_critic.py|snn_actor_snn_timing_critic_passive.yaml|snn_timing_critic"
 MODELS["ann2snn_actor"]="ann2snn_actor.py|ann2snn_actor.yaml|ann2snn_actor"
 MODELS["ann2snn_both"]="ann2snn_both.py|ann2snn_both.yaml|ann2snn_both"
+
+# Active T-Maze uses tuned configs for the two models that have them.
+declare -A ACTIVE_MODELS
+ACTIVE_MODELS["ann_baseline"]="ann_baseline.py|ann_baseline.yaml|ann"
+ACTIVE_MODELS["snn_actor_ann_critic"]="snn_actor_ann_critic.py|snn_actor_ann_critic_active.yaml|snn_ann_critic"
+ACTIVE_MODELS["snn_actor_snn_timing_critic"]="snn_actor_snn_timing_critic.py|snn_actor_snn_timing_critic_active.yaml|snn_timing_critic"
+ACTIVE_MODELS["ann2snn_actor"]="ann2snn_actor.py|ann2snn_actor.yaml|ann2snn_actor"
+ACTIVE_MODELS["ann2snn_both"]="ann2snn_both.py|ann2snn_both.yaml|ann2snn_both"
 
 run_env() {
     local config_dir=$1
     local log_key=$2
     local env_active=${3:-""}
+    local models_ref=${4:-MODELS}   # name of the associative array to use
 
-    for model_key in "${!MODELS[@]}"; do
-        IFS='|' read -r script config_file dir_name <<< "${MODELS[$model_key]}"
+    # Dynamically reference either MODELS or ACTIVE_MODELS
+    declare -n _models="$models_ref"
+
+    for model_key in "${!_models[@]}"; do
+        IFS='|' read -r script config_file dir_name <<< "${_models[$model_key]}"
         local config_path="configs/${config_dir}/${config_file}"
 
         for seed in $SEEDS; do
@@ -53,14 +65,14 @@ case "${1:-all}" in
     cartpole) run_env "cartpole" "cartpole" ;;
     poc)      run_env "poc"      "poc"      ;;
     tmaze)
-        run_env "tmaze" "tmaze_passive" "false"
-        run_env "tmaze" "tmaze_active"  "true"
+        run_env "tmaze" "tmaze_passive" "false" "MODELS"
+        run_env "tmaze" "tmaze_active"  "true"  "ACTIVE_MODELS"
         ;;
     all)
         run_env "cartpole" "cartpole"
         run_env "poc"      "poc"
-        run_env "tmaze"    "tmaze_passive" "false"
-        run_env "tmaze"    "tmaze_active"  "true"
+        run_env "tmaze"    "tmaze_passive" "false" "MODELS"
+        run_env "tmaze"    "tmaze_active"  "true"  "ACTIVE_MODELS"
         ;;
     *)
         echo "Usage: $0 [all|cartpole|poc|tmaze] [seed]"

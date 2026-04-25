@@ -126,6 +126,7 @@ def run_surrogate(config: Dict[str, Any]) -> Dict[str, Any]:
         normalize_critic_for_actor=bool(model_cfg.get("normalize_critic_for_actor", True)),
         critic_actor_value_clip=model_cfg.get("critic_actor_value_clip", 5.0),
         critic_actor_norm_momentum=float(model_cfg.get("critic_actor_norm_momentum", 0.01)),
+        critic_value_init_bias=float(model_cfg.get("critic_value_init_bias", 0.0)),
         **snn_cfg,
     ).to(device)
     coerce_module_to_device(agent, device)
