@@ -8,7 +8,8 @@
 #   - entropy_coef: 0.1 (higher — keeps exploration alive in seeds that start slowly)
 #   - max_grad_norm: 0.3 (tighter — prevents large gradient steps from bad critic)
 #   - clip_range_vf: 0.2 (prevents critic value collapse)
-#   - normalize_value_targets: true (stabilises critic on sparse rewards)
+#   - normalize_value_targets: false (T-Maze rewards bounded [-1,+1]; normalising
+#     collapses targets to mean≈0 — critic trivially predicts 0 everywhere in 1 update)
 #   - critic_value_init_bias: 0.1 (breaks zero-value fixed point — orthogonal init zeros
 #     all biases; on sparse-reward active task critic trivially converges to 0 and never
 #     escapes, causing actor gradient collapse within 10 updates)
@@ -76,7 +77,7 @@ ppo:
   reward_threshold: 0.95
   success_rate_threshold: 95.0
   scale_returns_to_value: false
-  normalize_value_targets: true   # Stabilises critic on sparse active-task rewards
+  normalize_value_targets: false  # Disabled: T-Maze rewards in [-1,+1] — normalising collapses targets to mean≈0, giving critic a trivial zero-prediction solution
 
 model:
   mode: "snn_actor_ann_critic"

@@ -8,7 +8,7 @@
 #   bash run_local.sh tmaze      → tmaze active + passive
 #   bash run_local.sh cartpole 1 → cartpole, seed 1 only (for quick testing)
 
-SEEDS="${2:-1 2 3 4 5}"   # override with single seed for quick runs
+SEEDS="${2:-6 7 8 9 10}"   # override with single seed for quick runs
 
 declare -A MODELS
 # format: script|config_file|dir_name  (dir_name matches the config log_dir short name)
