@@ -70,7 +70,7 @@ model:
   mode: "snn_actor_snn_timing_critic"
   hidden_dim: 64
   dropout: 0.2
-  in_features: 16 # 4 (obs size) * 4 (frame stack)
+  in_features: 8 # 2 (partial obs: position + angle) * 4 (frame stack)
   critic_informs_actor: false
   actor_critic_normalize: true
 
@@ -102,7 +102,8 @@ snn:
   # surrogate gradient parameters for critic timing
   critic_cosh_alpha: 2.0
   critic_cosh_beta: 1.0
-  critic_use_hard_no_spike: true
+  critic_use_hard_no_spike: false  # true + Rmin=0 → no-spike maps to 0, killing gradient
+  critic_lambda_tau: 0.01          # penalise late spiking; prevents tau stuck at T (no-spike mode)
 
   # Reward Mapping (Temporal Value Encoding)
   Rmax: 500.0 # Value if spike happens immediately (t=0)

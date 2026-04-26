@@ -12,11 +12,13 @@ from src.models.ann import BackboneNetwork, Actor, Critic, orthogonal_init
 from src.models.snn_spike_actor import SNNSpikeActor
 from src.models.snn_spike_value_critic import SNNSpikeValueCritic
 from src.models.snn_timing_critic import SNNTimingCritic
+from src.models.popsan_actor import POPSanActor
 from src.models.actor_critic import ActorCritic
 
 class ActorType(Enum):
     ANN = auto()
     SNN_SPIKE = auto()
+    SNN_POP = auto()
     # ANN_RECURRENT = auto()
 
 class CriticType(Enum):
@@ -93,7 +95,7 @@ def build_actor(
     if actor_type is ActorType.SNN_SPIKE:
         # SNN actor handles the optional critic concatenation internally.
         effective_in_dim = in_dim + (1 if critic_informs_actor else 0)
-        
+
         return SNNSpikeActor(
             in_dim=effective_in_dim,
             hid_dim=hidden_dim,
@@ -102,6 +104,32 @@ def build_actor(
             V_th=params["actor_V"],
             T=params["actor_T"],
             poisson_encode=params["actor_poisson"],
+            rate_scale=params["actor_rate"],
+            logit_temp=logit_temp,
+            center_logits=center_logits,
+            actor_surrogate_slope=actor_surrogate_slope,
+            actor_surrogate_type=actor_surrogate_type,
+            actor_cosh_alpha=actor_cosh_alpha,
+            actor_cosh_beta=actor_cosh_beta,
+        )
+
+    if actor_type is ActorType.SNN_POP:
+        # Population encoder replaces Poisson/rate coding.
+        # critic_informs_actor is handled inside POPSanActor: it adds +1 to the
+        # SNN's input dim to make room for the value concatenated in forward_T.
+        return POPSanActor(
+            obs_dim=in_dim,
+            act_dim=act_dim,
+            hid_dim=hidden_dim,
+            n_neurons_per_dim=int(kwargs.get("popsan_n_neurons", 10)),
+            obs_low=float(kwargs.get("popsan_obs_low", -1.0)),
+            obs_high=float(kwargs.get("popsan_obs_high", 1.0)),
+            sigma_scale=float(kwargs.get("popsan_sigma_scale", 1.0)),
+            critic_informs_actor=critic_informs_actor,
+            beta=beta,
+            V_th=params["actor_V"],
+            T=params["actor_T"],
+            poisson_encode=False,  # population encoding replaces Poisson
             rate_scale=params["actor_rate"],
             logit_temp=logit_temp,
             center_logits=center_logits,
@@ -250,7 +278,11 @@ def resolve_cartpole_types(mode: str) -> Tuple[ActorType, CriticType]:
         return ActorType.SNN_SPIKE, CriticType.SNN_SPIKE
     if mode == "snn_actor_snn_timing_critic":
         return ActorType.SNN_SPIKE, CriticType.SNN_TIMING
-    
+    if mode in ("popsan", "popsan_ann_critic"):
+        return ActorType.SNN_POP, CriticType.ANN
+    if mode == "popsan_timing_critic":
+        return ActorType.SNN_POP, CriticType.SNN_TIMING
+
     # Legacy fallback
     if mode == "snn":
         return ActorType.SNN_SPIKE, CriticType.ANN

@@ -69,7 +69,7 @@ model:
   hidden_dim: 64
   dropout: 0.0
   critic_informs_actor: false
-  in_features: 16 # 4 (obs size) * 4 (frame stack)
+  in_features: 8 # 2 (partial obs: position + angle) * 4 (frame stack)
 
 # PHASE 2: CONVERSION
 snn_convert:
