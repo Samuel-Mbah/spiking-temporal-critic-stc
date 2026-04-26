@@ -70,7 +70,7 @@ model:
   mode: "snn_actor_snn_timing_critic"
   hidden_dim: 64
   dropout: 0.2
-  in_features: 8 # 2 obs dims * 4 frame stack
+  in_features: 16 # 4 (obs size) * 4 (frame stack)
   critic_informs_actor: false
   actor_critic_normalize: true
 

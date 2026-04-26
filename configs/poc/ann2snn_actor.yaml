@@ -65,11 +65,11 @@ ppo:
   print_debug: false
 
 model:
-  mode: "ann"
+  mode: "ann2snn_actor"
   hidden_dim: 64
   dropout: 0.0
   critic_informs_actor: false
-  in_features: 8 # 2 obs dims * 4 frame stack
+  in_features: 16 # 4 (obs size) * 4 (frame stack)
 
 # PHASE 2: CONVERSION
 snn_convert:

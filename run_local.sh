@@ -18,6 +18,14 @@ MODELS["snn_actor_snn_timing_critic"]="snn_actor_snn_timing_critic.py|snn_actor_
 MODELS["ann2snn_actor"]="ann2snn_actor.py|ann2snn_actor.yaml|ann2snn_actor"
 MODELS["ann2snn_both"]="ann2snn_both.py|ann2snn_both.yaml|ann2snn_both"
 
+# POC configs use plain filenames (no _passive suffix).
+declare -A POC_MODELS
+POC_MODELS["ann_baseline"]="ann_baseline.py|ann_baseline.yaml|ann"
+POC_MODELS["snn_actor_ann_critic"]="snn_actor_ann_critic.py|snn_actor_ann_critic.yaml|snn_ann_critic"
+POC_MODELS["snn_actor_snn_timing_critic"]="snn_actor_snn_timing_critic.py|snn_actor_snn_timing_critic.yaml|snn_timing_critic"
+POC_MODELS["ann2snn_actor"]="ann2snn_actor.py|ann2snn_actor.yaml|ann2snn_actor"
+POC_MODELS["ann2snn_both"]="ann2snn_both.py|ann2snn_both.yaml|ann2snn_both"
+
 # Active T-Maze uses tuned configs for the two models that have them.
 declare -A ACTIVE_MODELS
 ACTIVE_MODELS["ann_baseline"]="ann_baseline.py|ann_baseline.yaml|ann"
@@ -63,14 +71,14 @@ run_env() {
 
 case "${1:-all}" in
     cartpole) run_env "cartpole" "cartpole" ;;
-    poc)      run_env "poc"      "poc"      ;;
+    poc)      run_env "poc"      "poc" "" "POC_MODELS" ;;
     tmaze)
         run_env "tmaze" "tmaze_passive" "false" "MODELS"
         run_env "tmaze" "tmaze_active"  "true"  "ACTIVE_MODELS"
         ;;
     all)
         run_env "cartpole" "cartpole"
-        run_env "poc"      "poc"
+        run_env "poc"      "poc" "" "POC_MODELS"
         run_env "tmaze"    "tmaze_passive" "false" "MODELS"
         run_env "tmaze"    "tmaze_active"  "true"  "ACTIVE_MODELS"
         ;;

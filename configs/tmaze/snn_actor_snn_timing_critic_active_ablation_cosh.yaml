@@ -1,0 +1,147 @@
+# Ablation: SNN Actor + SNN Timing Critic — both use Cosh surrogate
+#
+# Baseline (main paper): actor=fast_sigmoid(slope=5), critic=cosh(alpha=2)
+# This ablation:         actor=cosh(alpha=2),          critic=cosh(alpha=2)
+#
+# Purpose: isolate the effect of surrogate gradient choice on timing critic
+# performance. A reviewer noted the paper lacks an ablation on surrogate choice.
+# Compare results against snn_actor_snn_timing_critic_passive.yaml (baseline)
+# and snn_actor_snn_timing_critic_ablation_fastsigmoid.yaml (both fast_sigmoid).
+
+run_name: "SNN_TimingCritic_TMaze_Ablation_BothCosh"
+project_name: "tmaze-snn-neurips"
+log_dir: "results/logs/neurips/tmaze_active/ablation_both_cosh"
+plots_dir: "results/plots/neurips/tmaze_active/ablation_both_cosh"
+video_dir: "results/videos/neurips/tmaze_active/ablation_both_cosh"
+wandb_dir: "results/wandb/neurips/tmaze_active/ablation_both_cosh"
+
+save_ckpt: true
+device: "cuda"
+env_seed: 42
+instrument_timing: true
+timing_log_interval: 100
+
+experiment_meta:
+  repeats: 5
+  base_seed: 42
+  per_repeat_tag: "ablation"
+
+env:
+  id: "tmaze-v0"
+  kwargs:
+    active: true
+    length: 3
+  n_envs: 8
+  vec_normalize: false
+  max_episode_steps: 100
+  frame_stack: 4
+  frame_stack_flatten: true
+
+logging:
+  checkpoint_interval_updates: 10
+  save_last_checkpoint: true
+  logger_collect_spikes: true
+  activations_probe_interval: 100
+  latency_probe_interval: 100
+
+training:
+  rollout_length: 64
+  total_updates: 400
+  batch_size: 64
+  update_epochs: 4
+  sticky_action: false
+  no_action_cfg: null
+
+ppo:
+  lr: 0.0003
+  gamma: 0.99
+  lam: 0.95
+  clip_eps: 0.2
+  clip_range_vf: null
+  entropy_coef: 0.05
+  value_coef: 0.5
+  max_grad_norm: 0.5
+  target_kl: 0.015
+  kl_coef: 0.02
+  print_interval_updates: 10
+  eval_interval_updates: 10
+  eval_episodes: 20
+  solved_window_eval_episodes: 100
+  eval_seed: 42
+  reward_threshold: 0.95
+  success_rate_threshold: 95.0
+  scale_returns_to_value: false
+  normalize_value_targets: false
+
+model:
+  mode: "snn_actor_snn_timing_critic"
+  hidden_dim: 128
+  dropout: 0.2
+  in_features: 16 # 4 (obs size) * 4 (frame stack)
+  critic_informs_actor: false
+  actor_critic_normalize: true
+
+snn:
+  T: null
+  beta: 0.95
+  V_th: 1.0
+  poisson_encode: false
+  rate_scale: 1.0
+
+  # Actor — cosh (changed from fast_sigmoid in baseline)
+  actor_T: 16
+  actor_V_th: 0.6
+  actor_surrogate_type: "cosh"
+  actor_cosh_alpha: 2.0 # Same alpha as critic for a fair same-surrogate comparison
+  actor_cosh_beta: 1.0
+  actor_surrogate_slope: 5.0 # Inactive (cosh not used) — kept for reference
+  actor_logit_temp: 1.0
+  actor_poisson_encode: false
+  center_logits: true
+
+  # Critic — cosh (same as baseline)
+  critic_T: 32
+  critic_V_th: 1.0
+  critic_rate_scale: 5.0
+  critic_spike_temp: 5.0
+  critic_poisson_encode: false
+  critic_surrogate_type: "cosh"
+  critic_cosh_alpha: 2.0
+  critic_cosh_beta: 1.0
+  critic_use_hard_no_spike: false
+
+  # Reward Mapping
+  Rmax: 1.0
+  Rmin: -1.0
+
+benchmark:
+  measure_inference_energy: false
+  energy_runs_per_measure: 5
+  run_for_ann: false
+  num_episodes_for_benchmark: 50
+
+spike_reg:
+  lambda_spike: 0.001
+
+sticky_action:
+  train: false
+  eval: true
+
+seed_control:
+  deterministic_torch: true
+  cudnn_benchmark: false
+
+post_eval:
+  n_eval_steps: 512
+  n_eval_episodes: null
+  deterministic: true
+  max_episode_steps: 100
+
+reporting:
+  save_plots: true
+  timing_critic_plot_scope: all_steps
+  timing_critic_plot_actor_steps: 16
+  wandb:
+    use: false
+    project: "tmaze-snn-neurips"
+    tags: ["ablation", "snn", "timing-critic", "both-cosh"]
