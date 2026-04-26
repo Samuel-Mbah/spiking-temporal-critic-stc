@@ -1,0 +1,106 @@
+# POPSan baseline: population-coded SNN actor + ANN critic — CartPole-v1
+# Hyperparams match configs/cartpole/snn_actor_ann_critic.yaml exactly for fair comparison.
+# Population encoder: 4 obs dims * 10 neurons = 40-dim SNN input.
+# Obs bounds: [-5, 5] covers all CartPole dims (pos, vel, angle, ang_vel) with slack.
+
+run_name: "POPSan_CartPole_v1"
+project_name: "cartpole-snn-project"
+log_dir: "results/RLC/logs/popsan"
+plots_dir: "results/RLC/plots/popsan"
+video_dir: "results/RLC/videos/popsan"
+wandb_dir: "results/RLC/wandb/popsan"
+
+save_ckpt: true
+device: "cuda"
+env_seed: 42
+instrument_timing: true
+timing_log_interval: 100
+
+experiment_meta:
+  repeats: 5
+  base_seed: 42
+  per_repeat_tag: "research"
+
+env:
+  id: "CartPole-v1"
+  n_envs: 8
+  vec_normalize: false
+  max_episode_steps: 500
+
+logging:
+  checkpoint_interval_updates: 100
+  save_last_checkpoint: true
+  logger_collect_spikes: true
+  activations_probe_interval: 100
+  latency_probe_interval: 100
+
+training:
+  rollout_length: 2048
+  total_updates: 500
+  batch_size: 256
+  update_epochs: 10
+  sticky_action: false
+  no_action_cfg: null
+
+ppo:
+  lr: 0.001
+  gamma: 0.99
+  lam: 0.95
+  clip_eps: 0.2
+  clip_range_vf: 0.2
+  entropy_coef: 0.01
+  value_coef: 0.5
+  max_grad_norm: 0.5
+  target_kl: 0.015
+  print_interval_updates: 20
+  eval_interval_updates: 20
+  eval_episodes: 20
+  solved_window_eval_episodes: 100
+  eval_seed: 42
+  reward_threshold: 475.0
+  success_rate_threshold: 95.0
+  scale_returns_to_value: false
+
+seed_control:
+  deterministic_torch: true
+  cudnn_benchmark: false
+
+model:
+  mode: "popsan"
+  hidden_dim: 64
+  dropout: 0.0
+  in_features: 4          # raw CartPole obs dim; encoder expands to 4 * 10 = 40
+  critic_informs_actor: false
+
+snn:
+  T: 16
+  beta: 0.95
+  V_th: 0.6
+  poisson_encode: false   # population encoding replaces Poisson
+  rate_scale: 1.0
+  actor_surrogate_type: "fast_sigmoid"
+  actor_surrogate_slope: 5.0
+  actor_logit_temp: 1.0
+  center_logits: true
+
+  popsan_n_neurons: 10    # → 4 * 10 = 40 SNN inputs
+  popsan_obs_low: -5.0
+  popsan_obs_high: 5.0
+  popsan_sigma_scale: 1.0
+
+sticky_action:
+  train: false
+  eval: true
+
+benchmark:
+  measure_inference_energy: true
+  energy_runs_per_measure: 5
+  run_for_ann: false
+  num_episodes_for_benchmark: 50
+
+reporting:
+  save_plots: true
+  wandb:
+    use: false
+    project: "cartpole-snn-project"
+    tags: ["research", "snn", "popsan", "population-coding"]

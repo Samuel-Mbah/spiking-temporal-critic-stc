@@ -1,0 +1,122 @@
+# POPSan baseline: population-coded SNN actor + ANN critic — T-Maze passive, length 3
+# Hyperparams match configs/tmaze/snn_actor_ann_critic_passive.yaml exactly.
+# Population encoder: 16 obs dims * 10 neurons = 160-dim SNN input.
+# T-Maze obs is binary {0,1}; bounds [0, 1] give perfectly spaced Gaussian tuning curves.
+
+run_name: "POPSan_TMaze_Passive_NeurIPS"
+project_name: "tmaze-snn-neurips"
+log_dir: "results/NeurIPS/logs/tmaze_passive/popsan"
+plots_dir: "results/NeurIPS/plots/tmaze_passive/popsan"
+video_dir: "results/NeurIPS/videos/tmaze_passive/popsan"
+wandb_dir: "results/NeurIPS/wandb/tmaze_passive/popsan"
+
+save_ckpt: true
+device: "cuda"
+env_seed: 42
+instrument_timing: true
+timing_log_interval: 100
+
+experiment_meta:
+  repeats: 5
+  base_seed: 42
+  per_repeat_tag: "research"
+
+env:
+  id: "tmaze-v0"
+  kwargs:
+    active: false
+    length: 3
+  n_envs: 8
+  vec_normalize: false
+  max_episode_steps: 100
+  frame_stack: 4
+  frame_stack_flatten: true
+
+logging:
+  checkpoint_interval_updates: 10
+  save_last_checkpoint: true
+  logger_collect_spikes: true
+  activations_probe_interval: 100
+  latency_probe_interval: 100
+
+training:
+  rollout_length: 64
+  total_updates: 200
+  batch_size: 64
+  update_epochs: 4
+  sticky_action: false
+  no_action_cfg: null
+
+ppo:
+  lr: 0.0003
+  gamma: 0.99
+  lam: 0.95
+  clip_eps: 0.2
+  clip_range_vf: null
+  entropy_coef: 0.05
+  value_coef: 0.5
+  max_grad_norm: 0.5
+  target_kl: 0.015
+  kl_coef: 0.02
+  print_interval_updates: 10
+  eval_interval_updates: 10
+  eval_episodes: 20
+  solved_window_eval_episodes: 100
+  eval_seed: 42
+  reward_threshold: 0.95
+  success_rate_threshold: 95.0
+  scale_returns_to_value: false
+
+model:
+  mode: "popsan"
+  hidden_dim: 128
+  dropout: 0.2
+  in_features: 16               # 4 (obs) * 4 (frame stack); encoder expands to 16 * 10 = 160
+  critic_informs_actor: false
+
+snn:
+  T: 16
+  beta: 0.95
+  V_th: 0.6
+  poisson_encode: false
+  rate_scale: 1.0
+  actor_surrogate_type: "fast_sigmoid"
+  actor_surrogate_slope: 5.0
+  actor_logit_temp: 1.0
+  center_logits: true
+
+  # T-Maze obs is binary {0, 1} — bounds match the observation space exactly.
+  popsan_n_neurons: 10          # → 16 * 10 = 160 SNN inputs
+  popsan_obs_low: 0.0
+  popsan_obs_high: 1.0
+  popsan_sigma_scale: 1.0
+
+spike_reg:
+  lambda_spike: 0.001
+
+sticky_action:
+  train: false
+  eval: true
+
+benchmark:
+  measure_inference_energy: false
+  energy_runs_per_measure: 5
+  run_for_ann: false
+  num_episodes_for_benchmark: 50
+
+seed_control:
+  deterministic_torch: true
+  cudnn_benchmark: false
+
+post_eval:
+  n_eval_steps: 512
+  n_eval_episodes: null
+  deterministic: true
+  max_episode_steps: 100
+
+reporting:
+  save_plots: true
+  wandb:
+    use: false
+    project: "tmaze-snn-neurips"
+    tags: ["research", "snn", "popsan", "population-coding", "passive"]
