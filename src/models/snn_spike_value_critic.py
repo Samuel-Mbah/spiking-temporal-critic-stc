@@ -8,10 +8,10 @@ accumulated membrane current over a fixed simulation window (T steps).
 import torch
 import torch.nn as nn
 import snntorch as snn
-from snntorch import surrogate
 
 from src.models.snn_utils import poisson_encode, init_lif_states
 from src.models.snn_block import SNNBlock
+from src.models.surrogates import make_surrogate
 
 
 class SNNSpikeValueCritic(nn.Module):
@@ -33,7 +33,10 @@ class SNNSpikeValueCritic(nn.Module):
         T: int = 32,
         poisson_encode: bool = False,
         rate_scale: float = 1.0,
+        critic_surrogate_type: str = "fast_sigmoid",
         critic_surrogate_slope: float = 25.0,
+        critic_cosh_alpha: float = 10.0,
+        critic_cosh_beta: float = 1.0,
     ):
         super().__init__()
 
@@ -42,7 +45,12 @@ class SNNSpikeValueCritic(nn.Module):
         self.use_poisson_encode = bool(poisson_encode)
         self.rate_scale         = float(rate_scale)
 
-        sg = surrogate.fast_sigmoid(slope=int(critic_surrogate_slope))
+        sg = make_surrogate(
+            critic_surrogate_type,
+            slope=critic_surrogate_slope,
+            alpha=critic_cosh_alpha,
+            beta=critic_cosh_beta,
+        )
 
         self.block1 = SNNBlock(
             nn.Linear(in_dim, hid_dim),

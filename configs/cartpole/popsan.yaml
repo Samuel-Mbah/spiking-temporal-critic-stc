@@ -5,10 +5,10 @@
 
 run_name: "POPSan_CartPole_v1"
 project_name: "cartpole-snn-project"
-log_dir: "results/RLC/logs/popsan"
-plots_dir: "results/RLC/plots/popsan"
-video_dir: "results/RLC/videos/popsan"
-wandb_dir: "results/RLC/wandb/popsan"
+log_dir: "results/neurips/cartpole/popsan/logs"
+plots_dir: "results/neurips/cartpole/popsan/plots"
+video_dir: "results/neurips/cartpole/popsan/videos"
+wandb_dir: "results/neurips/cartpole/popsan/wandb"
 
 save_ckpt: true
 device: "cuda"
@@ -69,21 +69,21 @@ model:
   mode: "popsan"
   hidden_dim: 64
   dropout: 0.0
-  in_features: 4          # raw CartPole obs dim; encoder expands to 4 * 10 = 40
+  in_features: 4 # raw CartPole obs dim; encoder expands to 4 * 10 = 40
   critic_informs_actor: false
 
 snn:
   T: 16
   beta: 0.95
   V_th: 0.6
-  poisson_encode: false   # population encoding replaces Poisson
+  poisson_encode: false # population encoding replaces Poisson
   rate_scale: 1.0
   actor_surrogate_type: "fast_sigmoid"
   actor_surrogate_slope: 5.0
   actor_logit_temp: 1.0
   center_logits: true
 
-  popsan_n_neurons: 10    # → 4 * 10 = 40 SNN inputs
+  popsan_n_neurons: 10 # → 4 * 10 = 40 SNN inputs
   popsan_obs_low: -5.0
   popsan_obs_high: 5.0
   popsan_sigma_scale: 1.0

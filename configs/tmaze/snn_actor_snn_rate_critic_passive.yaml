@@ -1,14 +1,14 @@
-# POPSan baseline: population-coded SNN actor + ANN critic — T-Maze active, length 3
-# Hyperparams match configs/tmaze/snn_actor_ann_critic_active.yaml exactly.
-# Population encoder: 16 obs dims * 10 neurons = 160-dim SNN input.
-# T-Maze obs is binary {0,1}; bounds [0, 1] give perfectly spaced Gaussian tuning curves.
+# Ablation: SNN Actor + Rate-coded SNN Critic — T-Maze Passive
+# Reviewer ablation variant — isolates the contribution of latency coding and
+# distinct surrogate gradients in STC. All hyperparameters match the passive
+# STC config except: timing critic → rate-coded critic, cosh → fast_sigmoid.
 
-run_name: "POPSan_TMaze_Active_NeurIPS"
+run_name: "SNN_RateCodedCritic_TMaze_Passive_NeurIPS"
 project_name: "tmaze-snn-neurips"
-log_dir: "results/neurips/tmaze_active/popsan/logs"
-plots_dir: "results/neurips/tmaze_active/popsan/plots"
-video_dir: "results/neurips/tmaze_active/popsan/videos"
-wandb_dir: "results/neurips/tmaze_active/popsan/wandb"
+log_dir: "results/NeurIPS/logs/tmaze_passive/snn_rate_critic"
+plots_dir: "results/NeurIPS/plots/tmaze_passive/snn_rate_critic"
+video_dir: "results/NeurIPS/videos/tmaze_passive/snn_rate_critic"
+wandb_dir: "results/NeurIPS/wandb/tmaze_passive/snn_rate_critic"
 
 save_ckpt: true
 device: "cuda"
@@ -24,7 +24,7 @@ experiment_meta:
 env:
   id: "tmaze-v0"
   kwargs:
-    active: true
+    active: false
     length: 3
   n_envs: 8
   vec_normalize: false
@@ -40,22 +40,22 @@ logging:
   latency_probe_interval: 100
 
 training:
-  rollout_length: 128
-  total_updates: 400
+  rollout_length: 64
+  total_updates: 200
   batch_size: 64
   update_epochs: 4
   sticky_action: false
   no_action_cfg: null
 
 ppo:
-  lr: 0.0001
+  lr: 0.0003
   gamma: 0.99
   lam: 0.95
   clip_eps: 0.2
-  clip_range_vf: 0.2
-  entropy_coef: 0.1
-  value_coef: 0.25
-  max_grad_norm: 0.3
+  clip_range_vf: null
+  entropy_coef: 0.05
+  value_coef: 0.5
+  max_grad_norm: 0.5
   target_kl: 0.015
   kl_coef: 0.02
   print_interval_updates: 10
@@ -69,29 +69,42 @@ ppo:
   normalize_value_targets: false
 
 model:
-  mode: "popsan"
+  mode: "snn_actor_snn_critic"
   hidden_dim: 128
   dropout: 0.2
-  in_features: 16 # 4 (obs) * 4 (frame stack); encoder expands to 16 * 10 = 160
+  in_features: 16  # 4 (obs size) * 4 (frame stack)
   critic_informs_actor: false
-  critic_value_init_bias: 0.1
+  actor_critic_normalize: true
 
 snn:
-  T: 16
+  T: null
   beta: 0.95
-  V_th: 0.6
+  V_th: 1.0
   poisson_encode: false
   rate_scale: 1.0
+
+  # Actor — identical to STC passive config
+  actor_T: 16
+  actor_V_th: 0.6
   actor_surrogate_type: "fast_sigmoid"
   actor_surrogate_slope: 5.0
   actor_logit_temp: 1.0
+  actor_poisson_encode: false
   center_logits: true
 
-  # T-Maze obs is binary {0, 1} — bounds match the observation space exactly.
-  popsan_n_neurons: 10 # → 16 * 10 = 160 SNN inputs
-  popsan_obs_low: 0.0
-  popsan_obs_high: 1.0
-  popsan_sigma_scale: 1.0
+  # Critic — rate coding, same surrogate as actor
+  critic_T: 32
+  critic_V_th: 1.0
+  critic_rate_scale: 5.0
+  critic_poisson_encode: false
+  critic_surrogate_type: "fast_sigmoid"
+  critic_surrogate_slope: 5.0
+
+benchmark:
+  measure_inference_energy: false
+  energy_runs_per_measure: 5
+  run_for_ann: false
+  num_episodes_for_benchmark: 50
 
 spike_reg:
   lambda_spike: 0.001
@@ -99,12 +112,6 @@ spike_reg:
 sticky_action:
   train: false
   eval: true
-
-benchmark:
-  measure_inference_energy: false
-  energy_runs_per_measure: 5
-  run_for_ann: false
-  num_episodes_for_benchmark: 50
 
 seed_control:
   deterministic_torch: true
@@ -121,4 +128,4 @@ reporting:
   wandb:
     use: false
     project: "tmaze-snn-neurips"
-    tags: ["research", "snn", "popsan", "population-coding", "active"]
+    tags: ["research", "snn", "rate-critic", "passive", "ablation"]

@@ -365,6 +365,8 @@ def run_surrogate(config: Dict[str, Any]) -> Dict[str, Any]:
                 snn_module = agent.actor
                 if hasattr(snn_module, "backbone"):
                     snn_module = snn_module.backbone
+                if hasattr(snn_module, "snn"):   # POPSanActor wraps blocks inside .snn
+                    snn_module = snn_module.snn
                 n_neurons = 0
                 for block_name in ["block1", "block2", "block_out"]:
                     if hasattr(snn_module, block_name):

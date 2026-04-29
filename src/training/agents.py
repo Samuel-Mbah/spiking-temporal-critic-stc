@@ -183,6 +183,10 @@ def build_critic(
             T=params["critic_T"],
             poisson_encode=params["critic_poisson"],
             rate_scale=params["critic_rate"],
+            critic_surrogate_type=critic_surrogate_type,
+            critic_surrogate_slope=critic_surrogate_slope,
+            critic_cosh_alpha=critic_cosh_alpha,
+            critic_cosh_beta=critic_cosh_beta,
         )
 
     if critic_type is CriticType.SNN_TIMING:
