@@ -21,10 +21,13 @@ node_idx=0
 declare -A MODELS
 # format: script|config_file|dir_name  (dir_name matches the config log_dir short name)
 MODELS["ann_baseline"]="ann_baseline.py|ann_baseline.yaml|ann"
-MODELS["snn_actor_ann_critic"]="snn_actor_ann_critic.py|snn_actor_ann_critic_passive.yaml|snn_ann_critic"
-MODELS["snn_actor_snn_timing_critic"]="snn_actor_snn_timing_critic.py|snn_actor_snn_timing_critic_passive.yaml|snn_timing_critic"
+MODELS["snn_actor_ann_critic"]="snn_actor_ann_critic.py|snn_actor_ann_critic.yaml|snn_ann_critic"
+MODELS["snn_actor_snn_timing_critic"]="snn_actor_snn_timing_critic.py|snn_actor_snn_timing_critic.yaml|snn_timing_critic"
 MODELS["ann2snn_actor"]="ann2snn_actor.py|ann2snn_actor.yaml|ann2snn_actor"
 MODELS["ann2snn_both"]="ann2snn_both.py|ann2snn_both.yaml|ann2snn_both"
+MODELS["snn_actor_snn_rate_critic"]="snn_actor_snn_timing_critic.py|snn_actor_snn_rate_critic.yaml|snn_rate_critic"
+MODELS["popsan_snn"]="snn_actor_ann_critic.py|popsan_snn.yaml|popsan_snn"
+
 
 mkdir -p logs   # SLURM writes output here
 

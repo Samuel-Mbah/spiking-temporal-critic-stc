@@ -10,13 +10,23 @@
 
 SEEDS="${2:-1 2 3 4 5}"   # override with single seed for quick runs
 
-declare -A MODELS
-# format: script|config_file|dir_name  (dir_name matches the config log_dir short name)
+declare -A CARTPOLE_MODELS
+CARTPOLE_MODELS["ann_baseline"]="ann_baseline.py|ann_baseline.yaml|ann"
+CARTPOLE_MODELS["snn_actor_ann_critic"]="snn_actor_ann_critic.py|snn_actor_ann_critic.yaml|snn_ann_critic"
+CARTPOLE_MODELS["snn_actor_snn_timing_critic"]="snn_actor_snn_timing_critic.py|snn_actor_snn_timing_critic.yaml|snn_timing_critic"
+CARTPOLE_MODELS["ann2snn_actor"]="ann2snn_actor.py|ann2snn_actor.yaml|ann2snn_actor"
+CARTPOLE_MODELS["ann2snn_both"]="ann2snn_both.py|ann2snn_both.yaml|ann2snn_both"
+CARTPOLE_MODELS["snn_actor_snn_rate_critic"]="snn_actor_snn_timing_critic.py|snn_actor_snn_rate_critic.yaml|snn_rate_critic"
+CARTPOLE_MODELS["popsan_snn"]="snn_actor_ann_critic.py|popsan_snn.yaml|popsan_snn"
+
+declare -A MODELS  # tmaze passive
 MODELS["ann_baseline"]="ann_baseline.py|ann_baseline.yaml|ann"
 MODELS["snn_actor_ann_critic"]="snn_actor_ann_critic.py|snn_actor_ann_critic_passive.yaml|snn_ann_critic"
 MODELS["snn_actor_snn_timing_critic"]="snn_actor_snn_timing_critic.py|snn_actor_snn_timing_critic_passive.yaml|snn_timing_critic"
 MODELS["ann2snn_actor"]="ann2snn_actor.py|ann2snn_actor.yaml|ann2snn_actor"
 MODELS["ann2snn_both"]="ann2snn_both.py|ann2snn_both.yaml|ann2snn_both"
+MODELS["snn_actor_snn_rate_critic"]="snn_actor_snn_timing_critic.py|snn_actor_snn_rate_critic_passive.yaml|snn_rate_critic"
+MODELS["popsan_snn"]="snn_actor_ann_critic.py|popsan_passive.yaml|popsan_snn"
 
 # POC configs use plain filenames (no _passive suffix).
 declare -A POC_MODELS
@@ -25,6 +35,8 @@ POC_MODELS["snn_actor_ann_critic"]="snn_actor_ann_critic.py|snn_actor_ann_critic
 POC_MODELS["snn_actor_snn_timing_critic"]="snn_actor_snn_timing_critic.py|snn_actor_snn_timing_critic.yaml|snn_timing_critic"
 POC_MODELS["ann2snn_actor"]="ann2snn_actor.py|ann2snn_actor.yaml|ann2snn_actor"
 POC_MODELS["ann2snn_both"]="ann2snn_both.py|ann2snn_both.yaml|ann2snn_both"
+POC_MODELS["snn_actor_snn_rate_critic"]="snn_actor_snn_timing_critic.py|snn_actor_snn_rate_critic.yaml|snn_rate_critic"
+POC_MODELS["popsan_snn"]="snn_actor_ann_critic.py|popsan.yaml|popsan_snn"
 
 # Active T-Maze uses tuned configs for the two models that have them.
 declare -A ACTIVE_MODELS
@@ -33,6 +45,8 @@ ACTIVE_MODELS["snn_actor_ann_critic"]="snn_actor_ann_critic.py|snn_actor_ann_cri
 ACTIVE_MODELS["snn_actor_snn_timing_critic"]="snn_actor_snn_timing_critic.py|snn_actor_snn_timing_critic_active.yaml|snn_timing_critic"
 ACTIVE_MODELS["ann2snn_actor"]="ann2snn_actor.py|ann2snn_actor.yaml|ann2snn_actor"
 ACTIVE_MODELS["ann2snn_both"]="ann2snn_both.py|ann2snn_both.yaml|ann2snn_both"
+ACTIVE_MODELS["snn_actor_snn_rate_critic"]="snn_actor_snn_timing_critic.py|snn_actor_snn_rate_critic_active.yaml|snn_rate_critic"
+ACTIVE_MODELS["popsan_snn"]="snn_actor_ann_critic.py|popsan_active.yaml|popsan_snn"
 
 run_env() {
     local config_dir=$1
@@ -70,14 +84,14 @@ run_env() {
 }
 
 case "${1:-all}" in
-    cartpole) run_env "cartpole" "cartpole" ;;
+    cartpole) run_env "cartpole" "cartpole" "" "CARTPOLE_MODELS" ;;
     poc)      run_env "poc"      "poc" "" "POC_MODELS" ;;
     tmaze)
         run_env "tmaze" "tmaze_passive" "false" "MODELS"
         run_env "tmaze" "tmaze_active"  "true"  "ACTIVE_MODELS"
         ;;
     all)
-        run_env "cartpole" "cartpole"
+        run_env "cartpole" "cartpole" "" "CARTPOLE_MODELS"
         run_env "poc"      "poc" "" "POC_MODELS"
         run_env "tmaze"    "tmaze_passive" "false" "MODELS"
         run_env "tmaze"    "tmaze_active"  "true"  "ACTIVE_MODELS"

@@ -102,8 +102,8 @@ snn:
   # surrogate gradient parameters for critic timing
   critic_cosh_alpha: 2.0
   critic_cosh_beta: 1.0
-  critic_use_hard_no_spike: false  # true + Rmin=0 → no-spike maps to 0, killing gradient
-  critic_lambda_tau: 0.01          # penalise late spiking; prevents tau stuck at T (no-spike mode)
+  critic_use_hard_no_spike: false # true + Rmin=0 → no-spike maps to 0, killing gradient
+  critic_lambda_tau: 0.01 # penalise late spiking; prevents tau stuck at T (no-spike mode)
 
   # Reward Mapping (Temporal Value Encoding)
   Rmax: 500.0 # Value if spike happens immediately (t=0)
@@ -111,9 +111,9 @@ snn:
 
 # BENCHMARKING
 benchmark:
-  measure_inference_energy: true
+  measure_inference_energy: false
   energy_runs_per_measure: 5
-  run_for_ann: true
+  run_for_ann: false
   num_episodes_for_benchmark: 50
 
 spike_reg:
