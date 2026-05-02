@@ -105,7 +105,7 @@ snn:
 
 # BENCHMARKING
 benchmark:
-  measure_inference_energy: false
+  measure_inference_energy: true
   energy_runs_per_measure: 5
   run_for_ann: false
   num_episodes_for_benchmark: 50

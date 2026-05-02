@@ -41,7 +41,7 @@ logging:
 
 training:
   rollout_length: 64
-  total_updates: 400  # Match active STC — harder task needs more budget
+  total_updates: 400 # Match active STC — harder task needs more budget
   batch_size: 64
   update_epochs: 4
   sticky_action: false
@@ -53,7 +53,7 @@ ppo:
   lam: 0.95
   clip_eps: 0.2
   clip_range_vf: 0.2
-  entropy_coef: 0.08  # Higher to sustain exploration on harder task
+  entropy_coef: 0.08 # Higher to sustain exploration on harder task
   value_coef: 0.5
   max_grad_norm: 0.5
   target_kl: 0.015
@@ -72,7 +72,7 @@ model:
   mode: "snn_actor_snn_critic"
   hidden_dim: 128
   dropout: 0.2
-  in_features: 16  # 4 (obs size) * 4 (frame stack)
+  in_features: 16 # 4 (obs size) * 4 (frame stack)
   critic_informs_actor: false
   actor_critic_normalize: true
 
@@ -101,13 +101,13 @@ snn:
   critic_surrogate_slope: 5.0
 
 benchmark:
-  measure_inference_energy: false
+  measure_inference_energy: true
   energy_runs_per_measure: 5
   run_for_ann: false
   num_episodes_for_benchmark: 50
 
 spike_reg:
-  lambda_spike: 0.0005  # Match active STC
+  lambda_spike: 0.0005 # Match active STC
 
 sticky_action:
   train: false

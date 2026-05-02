@@ -27,7 +27,7 @@ env:
   vec_normalize: false
   max_episode_steps: 500
   partial_obs:
-    indices: [0, 2]  # position + angle only (hide velocity terms)
+    indices: [0, 2] # position + angle only (hide velocity terms)
   frame_stack: 4
   frame_stack_flatten: true
 
@@ -70,7 +70,7 @@ model:
   mode: "snn_actor_snn_critic"
   hidden_dim: 64
   dropout: 0.2
-  in_features: 8  # 2 (partial obs: position + angle) * 4 (frame stack)
+  in_features: 8 # 2 (partial obs: position + angle) * 4 (frame stack)
   critic_informs_actor: false
   actor_critic_normalize: true
 
@@ -101,7 +101,7 @@ snn:
 benchmark:
   measure_inference_energy: true
   energy_runs_per_measure: 5
-  run_for_ann: true
+  run_for_ann: false
   num_episodes_for_benchmark: 50
 
 spike_reg:
