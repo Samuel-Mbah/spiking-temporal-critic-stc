@@ -102,10 +102,6 @@ def update_policy(
         returns = returns[:min_size]
         values_old = values_old[:min_size]
 
-    # Critical for training stability when Value predictions are large (e.g. 500)
-    if advantages.numel() > 1:
-        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
-
     dataset = TensorDataset(
         states.to(device),
         actions.to(device),
@@ -154,6 +150,10 @@ def update_policy(
     for epoch in range(n_epochs):
         epochs_ran += 1
         for obs, act, lp_old, adv, ret, v_old in loader:
+            # Normalize per mini-batch (matches SB3 behaviour).
+            if adv.numel() > 1:
+                adv = (adv - adv.mean()) / (adv.std() + 1e-8)
+
             logits, value = agent(obs)
             value = value.squeeze(-1)
 
@@ -200,14 +200,27 @@ def update_policy(
                 val_loss = F.mse_loss(value_for_loss, ret_for_loss)
             else:
                 v_clipped = v_old_for_loss + torch.clamp(value_for_loss - v_old_for_loss, -clip_range_vf, clip_range_vf)
-                vf_losses1 = (value_for_loss - ret_for_loss) ** 2
-                vf_losses2 = (v_clipped - ret_for_loss) ** 2
-                val_loss = 0.5 * torch.mean(torch.max(vf_losses1, vf_losses2))
+                val_loss = F.mse_loss(v_clipped, ret_for_loss)
             
             # SNN Regularization
             reg = spike_regulariser(agent)
 
-            approx_kl = torch.mean(lp_old - logp)
+            log_ratio = logp - lp_old
+            approx_kl = torch.mean((torch.exp(log_ratio) - 1) - log_ratio)
+
+            # SB3-style early stopping: break immediately when KL exceeds threshold.
+            if target_kl is not None and float(approx_kl.item()) > 1.5 * target_kl:
+                metrics["policy_loss"].append(pol_loss.item())
+                metrics["value_loss"].append(val_loss.item())
+                metrics["entropy"].append(entropy.item())
+                metrics["kl"].append(approx_kl.item())
+                metrics["clip_frac"].append(float((torch.abs(ratio - 1) > clip_eps).float().mean().item()))
+                metrics["kl_penalty"].append(0.0)
+                metrics["ratio_mean"].append(float(ratio.mean().item()))
+                metrics["ratio_std"].append(float(ratio.std(unbiased=False).item()))
+                early_stop_kl = True
+                break
+
             kl_pen = torch.clamp(approx_kl - float(target_kl), min=0.0) if (target_kl and kl_coef > 0.0) else torch.zeros((), device=approx_kl.device)
 
             total_loss = (
@@ -254,9 +267,7 @@ def update_policy(
 
             updates += 1
 
-        # Early Stopping (KL Divergence)
-        if target_kl and np.mean(metrics["kl"][-len(loader):]) > 1.5 * target_kl:
-            early_stop_kl = True
+        if early_stop_kl:
             break
 
     # Finalize Metrics

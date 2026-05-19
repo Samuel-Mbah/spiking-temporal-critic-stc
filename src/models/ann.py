@@ -33,7 +33,6 @@ class BackboneNetwork(nn.Module):
     ):
         super().__init__()
 
-        # FIX: Ensure we have exactly 2 hidden layers if a single dim is provided
         if isinstance(hidden_dims, int):
             hidden_dims = [hidden_dims, hidden_dims]
         elif isinstance(hidden_dims, list) and len(hidden_dims) == 1:

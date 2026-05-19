@@ -11,7 +11,7 @@ video_dir: "results/RLC/videos/ann_research"
 wandb_dir: "results/wandb/ann_research"
 
 save_ckpt: true
-device: "cuda"         # change to "cpu" if GPU unavailable
+device: "cuda" # change to "cpu" if GPU unavailable
 env_seed: 42
 instrument_timing: true
 timing_log_interval: 100
@@ -25,14 +25,13 @@ experiment_meta:
 # ENVIRONMENT
 env:
   id: "CartPole-v1"
-  n_envs: 8                    # 8 envs * 2048 steps = 16,384 steps per update
-  vec_normalize: false         # Often better false for direct ANN inputs
+  n_envs: 8 # 8 envs * 2048 steps = 16,384 steps per update
+  vec_normalize: false # Often better false for direct ANN inputs
   max_episode_steps: 500
- 
 
 # LOGGING
 logging:
-  checkpoint_interval_updates: 100  # Save checkpoints every ~1.6M steps
+  checkpoint_interval_updates: 100 # Save checkpoints every ~1.6M steps
   save_last_checkpoint: true
   logger_collect_spikes: false
   activations_probe_interval: 100
@@ -40,8 +39,8 @@ logging:
 
 # TRAINING (Aligned for ~1.8M Steps)
 training:
-  rollout_length: 2048        # Large buffer for stable gradients
-  total_updates: 500         # 500 updates * 16k steps = ~1.8M total steps
+  rollout_length: 2048 # Large buffer for stable gradients. Also called n_steps in some implementations.
+  total_updates: 500 # 500 updates * 16k steps = ~1.8M total steps
   batch_size: 256
   update_epochs: 10
   sticky_action: false
@@ -59,10 +58,10 @@ ppo:
   max_grad_norm: 0.5
   target_kl: 0.015
   print_interval_updates: 20
-  eval_interval_updates: 20     # Eval less frequently for speed
-  eval_episodes: 20             # Higher sample size for reliable stats
+  eval_interval_updates: 20 # Eval less frequently for speed
+  eval_episodes: 20 # Higher sample size for reliable stats
   solved_window_eval_episodes: 100
-  eval_seed: 42                 # Deterministic eval seed base (per-episode offset)
+  eval_seed: 42 # Deterministic eval seed base (per-episode offset)
   reward_threshold: 475.0
   success_rate_threshold: 95.0
   scale_returns_to_value: false

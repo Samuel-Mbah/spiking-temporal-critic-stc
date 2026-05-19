@@ -149,23 +149,21 @@ def collect_rollout(
     _, last_val = agent_forward(agent, obs_t)
     advantages, returns = compute_gae(rew_buf, val_buf, done_buf, last_val, gamma, lam)
 
-    # 7. Flatten and normalize tensors so they can be batched by PPO.
+    # 7. Flatten tensors so they can be batched by PPO.
+    # Advantages are NOT normalized here — SB3 normalizes per mini-batch inside update_policy.
     def flat(x): return x.flatten(0, 1)
-
-    b_adv = flat(advantages)
-    b_adv = (b_adv - b_adv.mean()) / (b_adv.std() + 1e-8)
 
     # Provide summary stats for env wrappers that report raw episodic returns.
     raw_mean = np.mean(raw_ep_rewards) if raw_ep_rewards else np.nan
 
     return (
-        flat(obs_buf), 
-        flat(act_buf), 
-        flat(logp_buf), 
-        b_adv, 
-        flat(returns), 
-        flat(val_buf), 
-        raw_mean, 
-        len(raw_ep_rewards), 
+        flat(obs_buf),
+        flat(act_buf),
+        flat(logp_buf),
+        flat(advantages),
+        flat(returns),
+        flat(val_buf),
+        raw_mean,
+        len(raw_ep_rewards),
         done_count
     )
